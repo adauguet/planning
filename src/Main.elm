@@ -9,7 +9,7 @@ import Day exposing (Day)
 import Derberos.Date.Calendar exposing (getCurrentMonthDates)
 import Edit
 import FormatDate exposing (formatDate, monthString)
-import Html.Styled exposing (Attribute, Html, button, div, span, text, toUnstyled)
+import Html.Styled exposing (Attribute, Html, div, span, text, toUnstyled)
 import Html.Styled.Attributes exposing (css)
 import Html.Styled.Events exposing (onClick)
 import List.Extra
