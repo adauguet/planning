@@ -1,22 +1,120 @@
-module Code exposing (Code, defaultCodes)
+module Code exposing (Code(..), color, comment, description, selectList, toString)
 
 
-type alias Code =
-    { code : String
-    , description : String
-    , comment : String
-    }
+type Code
+    = T
+    | TT
+    | HS
+    | NT
+    | RCR
+    | CP
+    | AT
+    | F
+    | JS
+    | AAP
+    | AGE
 
 
-defaultCodes : List Code
-defaultCodes =
-    [ { code = "T", description = "Heures travaillées", comment = "" }
-    , { code = "AT", description = "Arrêt de Travail", comment = "" }
-    , { code = "TT", description = "Heures télétravaillées", comment = "" }
-    , { code = "CP", description = "Congés Payés", comment = "" }
-    , { code = "AAP", description = "Arrêt Activité Partielle", comment = "" }
-    , { code = "RCR", description = "Repos Compensateur de Récupération", comment = "" }
-    , { code = "F", description = "Férié", comment = "" }
-    , { code = "NT", description = "Non Travaillées (et de professionnalisation)", comment = "Cf contrat travail ou temps aménagé" }
-    , { code = "AGE", description = "Arrêt Garde Enfants", comment = "" }
-    ]
+selectList : List Code
+selectList =
+    [ T, TT, HS, NT, RCR, CP, AT, AAP, AGE ]
+
+
+toString : Code -> String
+toString code =
+    case code of
+        T ->
+            "T"
+
+        TT ->
+            "TT"
+
+        HS ->
+            "HS"
+
+        NT ->
+            "NT"
+
+        RCR ->
+            "RCR"
+
+        CP ->
+            "CP"
+
+        AT ->
+            "AT"
+
+        F ->
+            "F"
+
+        JS ->
+            "JS"
+
+        AAP ->
+            "AAP"
+
+        AGE ->
+            "AGE"
+
+
+description : Code -> String
+description code =
+    case code of
+        T ->
+            "Heures travaillées"
+
+        TT ->
+            "Heures télétravaillées"
+
+        HS ->
+            "Heures supplémentaires"
+
+        NT ->
+            "Non Travaillées (et de professionnalisation)"
+
+        RCR ->
+            "Repos Compensateur de Récupération"
+
+        CP ->
+            "Congés Payés"
+
+        AT ->
+            "Arrêt de Travail"
+
+        F ->
+            "Férié"
+
+        JS ->
+            "Journée de Solidarité"
+
+        AAP ->
+            "Arrêt Activité Partielle"
+
+        AGE ->
+            "Arrêt Garde Enfants"
+
+
+comment : Code -> String
+comment code =
+    case code of
+        NT ->
+            "Cf contrat travail ou temps aménagé"
+
+        _ ->
+            ""
+
+
+color : Code -> String
+color code =
+    case code of
+        T ->
+            "#4299E1"
+
+        TT ->
+            "#63B3ED"
+
+        HS ->
+            "#3182CE"
+
+        _ ->
+            ""
