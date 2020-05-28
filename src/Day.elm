@@ -1,4 +1,4 @@
-module Day exposing (Day)
+module Day exposing (Day, Kind(..))
 
 import Range exposing (Range)
 import Time exposing (Posix)
@@ -6,5 +6,11 @@ import Time exposing (Posix)
 
 type alias Day =
     { date : Posix
-    , ranges : List Range
+    , kind : Kind
     }
+
+
+type Kind
+    = Default (List Range)
+    | Holiday
+    | Solidarity

@@ -42,6 +42,31 @@ viewBox x_ y_ width_ height_ =
         |> Svg.Styled.Attributes.viewBox
 
 
+
+-- line : Float -> Float -> Float -> Float -> List (Attribute msg) -> List (Svg msg) -> Svg msg
+-- line x1_ y1_ x2_ y2_ attributes elements =
+--     Svg.Styled.line
+--         ([ x1 x1_
+--          , y1 y1_
+--          , x2 x2_
+--          , y2 y2_
+--          ]
+--             ++ attributes
+--         )
+--         elements
+-- line2 : { x1 : Float, y1 : Float, x2 : Float, y2 : Float } -> List (Attribute msg) -> List (Svg msg) -> Svg msg
+-- line2 coordinates attributes elements =
+--     Svg.Styled.line
+--         ([ x1 coordinates.x1
+--          , y1 coordinates.y1
+--          , x2 coordinates.x2
+--          , y2 coordinates.y2
+--          ]
+--             ++ attributes
+--         )
+--         elements
+
+
 x1 : Float -> Attribute msg
 x1 =
     String.fromFloat >> Svg.Styled.Attributes.x1
