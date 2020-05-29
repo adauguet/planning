@@ -1,4 +1,4 @@
-module Duration exposing (Duration(..), description, fromMinutes, toFloat, toMinutes)
+module Duration exposing (Duration, description, fromMinutes, toFloat, toMinutes, zero)
 
 
 type Duration
@@ -31,3 +31,8 @@ description (Duration ( h, m )) =
             |> String.fromInt
             |> String.padLeft 2 '0'
         ]
+
+
+zero : Duration
+zero =
+    Duration ( 0, 0 )

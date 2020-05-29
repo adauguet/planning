@@ -1,7 +1,7 @@
 module Day exposing (Day, Kind(..), aapHours, workingHours)
 
 import Code
-import Duration exposing (Duration(..))
+import Duration exposing (Duration)
 import Range exposing (Range)
 import Time exposing (Posix)
 
@@ -27,10 +27,10 @@ workingHours day =
                 |> Range.sum
 
         Holiday ->
-            Duration ( 0, 0 )
+            Duration.zero
 
         Solidarity ->
-            Duration ( 0, 0 )
+            Duration.zero
 
 
 aapHours : Day -> Duration
@@ -42,7 +42,7 @@ aapHours day =
                 |> Range.sum
 
         Holiday ->
-            Duration ( 0, 0 )
+            Duration.zero
 
         Solidarity ->
-            Duration ( 0, 0 )
+            Duration.zero

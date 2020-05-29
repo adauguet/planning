@@ -1,4 +1,4 @@
-module Range exposing (Range, Time(..), duration, sum, toFloat, toMinutes)
+module Range exposing (Range, Time(..), description, duration, sum, toFloat, toMinutes)
 
 import Code exposing (Code)
 import Duration exposing (Duration)
@@ -41,3 +41,10 @@ toMinutes (Time ( h, m )) =
 diff : Time -> Time -> Duration
 diff from to =
     toMinutes to - toMinutes from |> Duration.fromMinutes
+
+
+description : Time -> String
+description (Time ( h, m )) =
+    [ h, m ]
+        |> List.map (String.fromInt >> String.padLeft 2 '0')
+        |> String.join ":"

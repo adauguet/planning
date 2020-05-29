@@ -181,18 +181,20 @@ body model =
 headers : Html msg
 headers =
     let
-        h =
-            10
+        height =
+            20
     in
     div [ css [ Css.displayFlex ] ]
-        [ div
+        [ -- week number space
+          div
             [ css
                 [ Css.padding2 Css.zero (rem 1)
                 , Css.width (Css.px 110)
                 ]
             ]
             []
-        , div
+        , -- date space
+          div
             [ css
                 [ Css.width (Css.px 120)
                 , Css.displayFlex
@@ -202,30 +204,38 @@ headers =
                 ]
             ]
             []
-        , div [ css [ Css.marginLeft (rem 1) ] ]
+        , -- planning space
+          div [ css [ Css.marginLeft (rem 1) ] ]
             [ Svg.Styled.svg
                 [ Svg.Attributes.width width
-                , Svg.Attributes.height h
-                , Svg.Attributes.viewBox 0 0 width h
+                , Svg.Attributes.height height
+                , Svg.Attributes.viewBox 0 0 width height
                 ]
-                (List.range (ceiling from) (floor to)
-                    |> List.map toFloat
-                    |> List.map (\e -> e - from)
-                    |> List.map ((*) (width / numberOfHours))
-                    |> List.map
-                        (\x ->
-                            Svg.Styled.line
-                                [ Svg.Attributes.x1 x
-                                , Svg.Attributes.y1 0
-                                , Svg.Attributes.x2 x
-                                , Svg.Attributes.y2 h
-                                , Svg.Styled.Attributes.stroke "darkgray"
-                                ]
-                                []
-                        )
-                )
+                (ticks height ++ hourLabels height)
             ]
         ]
+
+
+hourLabels : Float -> List (Svg msg)
+hourLabels _ =
+    List.range (ceiling from) (floor to)
+        |> List.map
+            (\e ->
+                let
+                    x =
+                        (toFloat e - from) * (width / numberOfHours)
+
+                    hour =
+                        e |> String.fromInt |> String.padLeft 2 '0'
+                in
+                Svg.Styled.text_
+                    [ Svg.Attributes.x (x + 3)
+                    , Svg.Attributes.y 10
+                    , Svg.Styled.Attributes.fontSize "12px"
+                    , Svg.Styled.Attributes.fill "darkgray"
+                    ]
+                    [ text (hour ++ ":00") ]
+            )
 
 
 weekView : Zone -> Posix -> ( Int, List ( Int, Day ) ) -> Html Msg
@@ -347,7 +357,7 @@ width =
 
 dayHeight : Float
 dayHeight =
-    40
+    50
 
 
 from : Float
@@ -422,7 +432,7 @@ frame =
         , Svg.Attributes.y 0
         , Svg.Attributes.width width
         , Svg.Attributes.height dayHeight
-        , Svg.Styled.Attributes.fill "#F7FAFC"
+        , Svg.Styled.Attributes.fill "transparent"
         ]
         []
 
@@ -435,23 +445,42 @@ rangeSvg range =
                 |> Range.toFloat
                 |> (\i -> i - from)
                 |> (*) (width / numberOfHours)
+
+        width2 =
+            (range |> Range.duration |> Duration.toFloat |> (*) (width / numberOfHours)) - 6
+
+        height =
+            dayHeight - 6
     in
     [ Svg.Styled.rect
         [ Svg.Attributes.x (x + 3)
         , Svg.Attributes.y 3
-        , Svg.Attributes.width ((range |> Range.duration |> Duration.toFloat |> (*) (width / numberOfHours)) - 6)
-        , Svg.Attributes.height (dayHeight - 6)
+        , Svg.Attributes.width width2
+        , Svg.Attributes.height height
         , Svg.Styled.Attributes.fill <| Code.color range.code
         , Svg.Attributes.rx 2
         , Svg.Attributes.ry 2
         ]
         []
     , Svg.Styled.text_
-        [ Svg.Attributes.x (x + 10)
-        , Svg.Attributes.y 20
+        [ Svg.Attributes.x (x + 7)
+        , Svg.Attributes.y 16
         , Svg.Styled.Attributes.fill "black"
+        , Svg.Styled.Attributes.fontSize "12px"
         ]
-        [ Svg.Styled.text <| Code.toString range.code ]
+        [ [ Range.description range.begin
+          , Code.toString range.code
+          ]
+            |> String.join " "
+            |> Svg.Styled.text
+        ]
+    , Svg.Styled.text_
+        [ Svg.Attributes.x (x + width2 - 29)
+        , Svg.Attributes.y (height - 2)
+        , Svg.Styled.Attributes.fill "black"
+        , Svg.Styled.Attributes.fontSize "12px"
+        ]
+        [ Svg.Styled.text <| Range.description range.end ]
     ]
 
 
@@ -474,16 +503,6 @@ tick height x =
         , Svg.Styled.Attributes.stroke "darkgray"
         ]
         []
-
-
-
--- hourLabels : Float -> List (Svg msg)
--- hourLabels x =
---     List.range (ceiling from) (floor to)
---         |> List.map toFloat
---         |> List.map (\e -> e - from)
---         |> List.map ((*) (width / numberOfHours))
---         |> List.map (\e -> Svg.Styled.text_ [] [])
 
 
 isSameDay : Zone -> Posix -> Posix -> Bool
