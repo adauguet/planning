@@ -7,10 +7,11 @@ import Css exposing (pct, px, rem, zero)
 import Date
 import Day exposing (Day)
 import Derberos.Date.Calendar exposing (getCurrentMonthDates)
+import Duration exposing (Duration(..))
 import Edit
 import FormatDate exposing (formatDate, monthString)
-import Html.Styled exposing (Attribute, Html, div, span, text, toUnstyled)
-import Html.Styled.Attributes exposing (css)
+import Html.Styled exposing (Attribute, Html, div, text, toUnstyled)
+import Html.Styled.Attributes exposing (css, id)
 import Html.Styled.Events exposing (onClick)
 import List.Extra
 import Range exposing (Range)
@@ -78,7 +79,7 @@ update msg model =
             ( { model
                 | time = Just now
                 , zone = Just here
-                , days = generateDays here now
+                , days = computeDays here now
               }
             , Cmd.none
             )
@@ -103,7 +104,7 @@ update msg model =
 
         ClickedValidate index result ->
             case result of
-                Err error ->
+                Err _ ->
                     ( model, Cmd.none )
 
                 Ok kind ->
@@ -119,12 +120,6 @@ update msg model =
                     ( { model | state = Initial, days = days }, Cmd.none )
 
 
-generateDays : Zone -> Posix -> List Day
-generateDays zone current =
-    getCurrentMonthDates zone current
-        |> List.map (\d -> { date = d, kind = Day.Default [] })
-
-
 daysToWeeks : Zone -> List Day -> List ( Int, List ( Int, Day ) )
 daysToWeeks zone days =
     let
@@ -135,6 +130,12 @@ daysToWeeks zone days =
         |> List.indexedMap (\index day -> ( index, day ))
         |> List.Extra.groupWhile (\a b -> weekNumber (Tuple.second a).date == weekNumber (Tuple.second b).date)
         |> List.map (\( head, tail ) -> ( weekNumber (Tuple.second head).date, head :: tail ))
+
+
+computeDays : Zone -> Posix -> List Day
+computeDays zone current =
+    getCurrentMonthDates zone current
+        |> List.map (\d -> { date = d, kind = Day.Default [] })
 
 
 
@@ -245,26 +246,12 @@ monthHeader : Zone -> Posix -> Html msg
 monthHeader zone posix =
     div
         [ css
-            [ Css.displayFlex
-            , Css.alignItems Css.center
+            [ Css.fontSize (rem 1.5)
+            , Css.fontWeight (Css.int 900)
             , Css.padding (rem 1)
             ]
         ]
-        [ div
-            [ css
-                [ Css.fontSize (rem 1.5)
-                , Css.fontWeight (Css.int 900)
-                ]
-            ]
-            [ text <| monthString zone posix
-            , span
-                [ css
-                    [ Css.fontSize (rem 1.5)
-                    , Css.marginLeft (rem 0.5)
-                    ]
-                ]
-                [ text <| String.fromInt <| Time.toYear zone posix ]
-            ]
+        [ text <| monthString zone posix ++ " " ++ (String.fromInt <| Time.toYear zone posix)
         ]
 
 
@@ -310,6 +297,32 @@ dayView zone today ( index, day ) =
 
                 Day.Solidarity ->
                     weekendView
+            ]
+        , div
+            [ css
+                [ Css.displayFlex
+                , Css.alignItems Css.center
+                , Css.margin2 Css.zero (rem 1)
+                ]
+            ]
+            [ div []
+                [ Day.workingHours day
+                    |> Duration.description
+                    |> text
+                ]
+            ]
+        , div
+            [ css
+                [ Css.displayFlex
+                , Css.alignItems Css.center
+                , Css.margin2 Css.zero (rem 1)
+                ]
+            ]
+            [ div []
+                [ Day.aapHours day
+                    |> Duration.description
+                    |> text
+                ]
             ]
         ]
 
@@ -409,7 +422,7 @@ frame =
         , Svg.Attributes.y 0
         , Svg.Attributes.width width
         , Svg.Attributes.height dayHeight
-        , Svg.Styled.Attributes.fill "#EDF2F7"
+        , Svg.Styled.Attributes.fill "#F7FAFC"
         ]
         []
 
@@ -426,7 +439,7 @@ rangeSvg range =
     [ Svg.Styled.rect
         [ Svg.Attributes.x (x + 3)
         , Svg.Attributes.y 3
-        , Svg.Attributes.width ((Range.duration range |> (*) (width / numberOfHours)) - 6)
+        , Svg.Attributes.width ((range |> Range.duration |> Duration.toFloat |> (*) (width / numberOfHours)) - 6)
         , Svg.Attributes.height (dayHeight - 6)
         , Svg.Styled.Attributes.fill <| Code.color range.code
         , Svg.Attributes.rx 2
@@ -435,7 +448,7 @@ rangeSvg range =
         []
     , Svg.Styled.text_
         [ Svg.Attributes.x (x + 10)
-        , Svg.Attributes.y 17
+        , Svg.Attributes.y 20
         , Svg.Styled.Attributes.fill "black"
         ]
         [ Svg.Styled.text <| Code.toString range.code ]

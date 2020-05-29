@@ -72,21 +72,57 @@ init kind =
 
 default : List Range
 default =
-    [ { begin = ( 8, 30 )
-      , end = ( 12, 30 )
+    [ { begin = Range.Time ( 7, 30 )
+      , end = Range.Time ( 8, 30 )
       , code = Code.T
       }
-    , { begin = ( 14, 0 )
-      , end = ( 18, 0 )
+    , { begin = Range.Time ( 8, 30 )
+      , end = Range.Time ( 10, 0 )
       , code = Code.TT
+      }
+    , { begin = Range.Time ( 10, 0 )
+      , end = Range.Time ( 11, 30 )
+      , code = Code.HS
+      }
+    , { begin = Range.Time ( 11, 30 )
+      , end = Range.Time ( 13, 0 )
+      , code = Code.NT
+      }
+    , { begin = Range.Time ( 13, 0 )
+      , end = Range.Time ( 14, 30 )
+      , code = Code.RCR
+      }
+    , { begin = Range.Time ( 14, 30 )
+      , end = Range.Time ( 16, 0 )
+      , code = Code.AGE
+      }
+    , { begin = Range.Time ( 16, 0 )
+      , end = Range.Time ( 17, 30 )
+      , code = Code.AT
+      }
+    , { begin = Range.Time ( 17, 30 )
+      , end = Range.Time ( 19, 0 )
+      , code = Code.AAP
       }
     ]
 
 
+
+-- [ { begin = ( 8, 30 )
+--   , end = ( 12, 30 )
+--   , code = Code.T
+--   }
+-- , { begin = ( 14, 0 )
+--   , end = ( 18, 0 )
+--   , code = Code.TT
+--   }
+-- ]
+
+
 newRange : Range
 newRange =
-    { begin = ( 8, 0 )
-    , end = ( 12, 0 )
+    { begin = Range.Time ( 8, 0 )
+    , end = Range.Time ( 12, 0 )
     , code = Code.T
     }
 
@@ -104,8 +140,8 @@ type Msg
 
 
 type RangeMsg
-    = DidSelectBeginning ( Int, Int )
-    | DidSelectEnd ( Int, Int )
+    = DidSelectBeginning Range.Time
+    | DidSelectEnd Range.Time
     | DidSelectCode Code
 
 
@@ -176,7 +212,7 @@ validateRanges ranges =
 
 validateEachRanges : List Range -> Result String (List Range)
 validateEachRanges ranges =
-    if List.all (\r -> r.begin < r.end) ranges then
+    if List.all (\r -> Range.toMinutes r.begin < Range.toMinutes r.end) ranges then
         Ok ranges
 
     else
@@ -189,7 +225,7 @@ validateConsecutiveRanges ranges =
         validate r =
             case r of
                 first :: second :: tail ->
-                    first.end <= second.begin && validate (second :: tail)
+                    Range.toMinutes first.end <= Range.toMinutes second.begin && validate (second :: tail)
 
                 _ ->
                     True
@@ -305,7 +341,7 @@ targetSelectedIndex items msg =
             )
 
 
-ticks : List ( Int, Int )
+ticks : List Range.Time
 ticks =
     let
         mod a b =
@@ -315,12 +351,13 @@ ticks =
         |> List.map ((*) 15)
         |> List.map (mod 60)
         |> List.map (Tuple.mapFirst ((+) 7))
+        |> List.map Range.Time
 
 
-timeSelect : Bool -> List ( Int, Int ) -> ( Int, Int ) -> (( Int, Int ) -> msg) -> Html msg
-timeSelect isDisabled times selectedTime msg =
+timeSelect : Bool -> List Range.Time -> Range.Time -> (Range.Time -> msg) -> Html msg
+timeSelect isDisabled times (Range.Time selectedTime) msg =
     let
-        timeView ( hours, minutes ) =
+        timeView (Range.Time ( hours, minutes )) =
             option [ selected (( hours, minutes ) == selectedTime) ]
                 [ text
                     (String.padLeft 2 '0' (String.fromInt hours)

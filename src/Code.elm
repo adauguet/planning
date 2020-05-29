@@ -1,4 +1,4 @@
-module Code exposing (Code(..), color, comment, description, selectList, toString)
+module Code exposing (Code(..), color, comment, description, isPaid, selectList, toString)
 
 
 type Code
@@ -108,13 +108,48 @@ color : Code -> String
 color code =
     case code of
         T ->
-            "#4299E1"
+            "hsl(204, 86%, 53%)"
+
+        -- TT ->
+        --     "#63B3ED"
+        -- HS ->
+        --     "#3182CE"
+        _ ->
+            "#CBD5E0"
+
+
+isPaid : Code -> Bool
+isPaid code =
+    case code of
+        T ->
+            True
 
         TT ->
-            "#63B3ED"
+            True
+
+        F ->
+            True
+
+        AGE ->
+            True
+
+        AT ->
+            True
+
+        CP ->
+            True
+
+        RCR ->
+            True
 
         HS ->
-            "#3182CE"
+            True
 
-        _ ->
-            ""
+        JS ->
+            True
+
+        NT ->
+            False
+
+        AAP ->
+            False
