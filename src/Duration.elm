@@ -22,15 +22,9 @@ toFloat (Duration ( h, m )) =
 
 description : Duration -> String
 description (Duration ( h, m )) =
-    String.concat
-        [ h
-            |> String.fromInt
-            |> String.padLeft 2 '0'
-        , ":"
-        , m
-            |> String.fromInt
-            |> String.padLeft 2 '0'
-        ]
+    [ h, m ]
+        |> List.map (String.fromInt >> String.padLeft 2 '0')
+        |> String.join ":"
 
 
 zero : Duration

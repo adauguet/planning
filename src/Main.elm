@@ -1,26 +1,25 @@
-module Main exposing (main)
+port module Main exposing (main)
 
 import Browser exposing (Document, UrlRequest)
 import Browser.Navigation exposing (Key)
 import Code
-import Css exposing (pct, px, rem, zero)
-import Date
+import Css exposing (pct, px, rem)
+import Css.Global
 import Day exposing (Day)
 import Derberos.Date.Calendar exposing (getCurrentMonthDates)
 import Duration exposing (Duration(..))
 import Edit
-import FormatDate exposing (formatDate, monthString)
-import Html.Styled exposing (Attribute, Html, div, text, toUnstyled)
-import Html.Styled.Attributes exposing (css, id)
+import Html.Styled exposing (Attribute, Html, button, div, span, text, toUnstyled)
+import Html.Styled.Attributes exposing (css)
 import Html.Styled.Events exposing (onClick)
+import Json.Encode as E exposing (Value)
 import List.Extra
 import Range exposing (Range)
-import Svg.Attributes
-import Svg.Styled exposing (Svg)
-import Svg.Styled.Attributes
 import Tailwind
 import Task
 import Time exposing (Posix, Zone)
+import Time.Helpers exposing (formatDate, monthYearString)
+import Time.Time as Time
 import Url exposing (Url)
 
 
@@ -33,6 +32,7 @@ type alias Model =
     , time : Maybe Posix
     , state : State
     , days : List Day
+    , name : String
     }
 
 
@@ -47,6 +47,7 @@ init _ _ _ =
       , time = Nothing
       , state = Initial
       , days = []
+      , name = "Antoine DAUGUET"
       }
     , Task.perform GotZoneTime <| Task.map2 (\zone posix -> ( zone, posix )) Time.here Time.now
     )
@@ -64,6 +65,7 @@ type Msg
     | EditMsg Edit.Msg
     | ClickedCancel
     | ClickedValidate Int (Result String Day.Kind)
+    | ClickedExport
 
 
 update : Msg -> Model -> ( Model, Cmd Msg )
@@ -119,17 +121,25 @@ update msg model =
                     in
                     ( { model | state = Initial, days = days }, Cmd.none )
 
+        ClickedExport ->
+            case ( model.zone, model.time ) of
+                ( Just zone, Just time ) ->
+                    ( model, export <| encode zone time model )
 
-daysToWeeks : Zone -> List Day -> List ( Int, List ( Int, Day ) )
-daysToWeeks zone days =
-    let
-        weekNumber =
-            Date.fromPosix zone >> Date.weekNumber
-    in
-    days
-        |> List.indexedMap (\index day -> ( index, day ))
-        |> List.Extra.groupWhile (\a b -> weekNumber (Tuple.second a).date == weekNumber (Tuple.second b).date)
-        |> List.map (\( head, tail ) -> ( weekNumber (Tuple.second head).date, head :: tail ))
+                _ ->
+                    ( model, Cmd.none )
+
+
+encode : Zone -> Posix -> Model -> Value
+encode zone posix model =
+    E.object
+        [ ( "name", E.string model.name )
+        , ( "month", E.string <| monthYearString zone posix )
+        , ( "days", E.list (Day.encode zone) model.days )
+        ]
+
+
+port export : Value -> Cmd msg
 
 
 computeDays : Zone -> Posix -> List Day
@@ -151,21 +161,47 @@ view model =
 
 body : Model -> List (Html Msg)
 body model =
-    [ div
+    [ Css.Global.global
+        [ Css.Global.everything
+            [ Css.fontFamilies [ "Roboto", .value Css.sansSerif ]
+            , Css.focus [ Css.outline Css.zero ]
+            ]
+        , Css.Global.body
+            [ Css.displayFlex
+            , Css.flexDirection Css.column
+            ]
+        ]
+    , div
         [ css
             [ Css.fontWeight (Css.int 600)
             , Css.fontSize (rem 1.5)
             , Css.padding (rem 1)
             ]
         ]
-        [ text "Antoine DAUGUET" ]
+        [ case ( model.zone, model.time ) of
+            ( Just zone, Just posix ) ->
+                text <| model.name ++ " - " ++ monthYearString zone posix
+
+            _ ->
+                text model.name
+        ]
+    , div
+        [ css [ Css.padding (rem 1), Css.alignSelf Css.flexEnd ] ]
+        [ button [ onClick ClickedExport ] [ text "Exporter" ] ]
     , case ( model.zone, model.time ) of
         ( Just zone, Just time ) ->
-            let
-                weeks =
-                    daysToWeeks zone model.days
-            in
-            div [] (monthHeader zone time :: headers :: List.map (weekView zone time) weeks)
+            div []
+                (model.days
+                    |> List.indexedMap (\index day -> ( index, day ))
+                    |> List.map
+                        (\( index, day ) ->
+                            if Time.Helpers.isWeekend zone day.date then
+                                weekendView zone time day.date
+
+                            else
+                                dayView zone time ( index, day )
+                        )
+                )
 
         _ ->
             text ""
@@ -178,188 +214,6 @@ body model =
     ]
 
 
-headers : Html msg
-headers =
-    let
-        height =
-            20
-    in
-    div [ css [ Css.displayFlex ] ]
-        [ -- week number space
-          div
-            [ css
-                [ Css.padding2 Css.zero (rem 1)
-                , Css.width (Css.px 110)
-                ]
-            ]
-            []
-        , -- date space
-          div
-            [ css
-                [ Css.width (Css.px 120)
-                , Css.displayFlex
-                , Css.alignItems Css.center
-                , Css.justifyContent Css.flexEnd
-                , Css.padding2 Css.zero (rem 0.5)
-                ]
-            ]
-            []
-        , -- planning space
-          div [ css [ Css.marginLeft (rem 1) ] ]
-            [ Svg.Styled.svg
-                [ Svg.Attributes.width width
-                , Svg.Attributes.height height
-                , Svg.Attributes.viewBox 0 0 width height
-                ]
-                (ticks height ++ hourLabels height)
-            ]
-        ]
-
-
-hourLabels : Float -> List (Svg msg)
-hourLabels _ =
-    List.range (ceiling from) (floor to)
-        |> List.map
-            (\e ->
-                let
-                    x =
-                        (toFloat e - from) * (width / numberOfHours)
-
-                    hour =
-                        e |> String.fromInt |> String.padLeft 2 '0'
-                in
-                Svg.Styled.text_
-                    [ Svg.Attributes.x (x + 3)
-                    , Svg.Attributes.y 10
-                    , Svg.Styled.Attributes.fontSize "12px"
-                    , Svg.Styled.Attributes.fill "darkgray"
-                    ]
-                    [ text (hour ++ ":00") ]
-            )
-
-
-weekView : Zone -> Posix -> ( Int, List ( Int, Day ) ) -> Html Msg
-weekView zone currentDate ( n, days ) =
-    div [ css [ Css.displayFlex ] ]
-        [ div
-            [ css
-                [ Css.padding2 Css.zero (rem 1)
-                , Css.width (Css.px 110)
-                ]
-            ]
-            [ text <| "Semaine " ++ String.fromInt n ]
-        , div [ css [ Css.padding2 Css.zero (rem 1) ] ] (List.map (dayView zone currentDate) days)
-        ]
-
-
-monthHeader : Zone -> Posix -> Html msg
-monthHeader zone posix =
-    div
-        [ css
-            [ Css.fontSize (rem 1.5)
-            , Css.fontWeight (Css.int 900)
-            , Css.padding (rem 1)
-            ]
-        ]
-        [ text <| monthString zone posix ++ " " ++ (String.fromInt <| Time.toYear zone posix)
-        ]
-
-
-dayView : Zone -> Posix -> ( Int, Day ) -> Html Msg
-dayView zone today ( index, day ) =
-    div
-        [ css
-            [ Css.displayFlex
-            , Css.cursor Css.default
-            , if isSameDay zone day.date today then
-                Css.batch
-                    [ Css.color Tailwind.blue700
-                    , Css.fontWeight (Css.int 500)
-                    ]
-
-              else
-                Css.hover
-                    [ Css.backgroundColor Tailwind.gray200
-                    ]
-            ]
-        , onClick (ClickedDay index day)
-        ]
-        [ div
-            [ css
-                [ Css.minWidth (Css.px 120)
-                , Css.displayFlex
-                , Css.alignItems Css.center
-                , Css.justifyContent Css.flexEnd
-                ]
-            ]
-            [ div [] [ text <| formatDate zone day.date ] ]
-        , div [ css [ Css.marginLeft (rem 1) ] ]
-            [ case day.kind of
-                Day.Default ranges ->
-                    if isWeekend zone day.date then
-                        weekendView
-
-                    else
-                        planningView ranges
-
-                Day.Holiday ->
-                    weekendView
-
-                Day.Solidarity ->
-                    weekendView
-            ]
-        , div
-            [ css
-                [ Css.displayFlex
-                , Css.alignItems Css.center
-                , Css.margin2 Css.zero (rem 1)
-                ]
-            ]
-            [ div []
-                [ Day.workingHours day
-                    |> Duration.description
-                    |> text
-                ]
-            ]
-        , div
-            [ css
-                [ Css.displayFlex
-                , Css.alignItems Css.center
-                , Css.margin2 Css.zero (rem 1)
-                ]
-            ]
-            [ div []
-                [ Day.aapHours day
-                    |> Duration.description
-                    |> text
-                ]
-            ]
-        ]
-
-
-isWeekend : Zone -> Posix -> Bool
-isWeekend zone posix =
-    case Time.toWeekday zone posix of
-        Time.Sat ->
-            True
-
-        Time.Sun ->
-            True
-
-        _ ->
-            False
-
-
-width : Float
-width =
-    800
-
-
-dayHeight : Float
-dayHeight =
-    50
-
-
 from : Float
 from =
     7.5
@@ -370,139 +224,221 @@ to =
     19
 
 
-numberOfHours : Float
-numberOfHours =
-    to - from
-
-
-planningView : List Range -> Html msg
-planningView ranges =
-    Svg.Styled.svg
-        [ Svg.Attributes.width width
-        , Svg.Attributes.height dayHeight
-        , Svg.Attributes.viewBox 0 0 width dayHeight
+dayView : Zone -> Posix -> ( Int, Day ) -> Html Msg
+dayView zone today ( index, day ) =
+    div
+        [ onClick (ClickedDay index day)
+        , css
+            [ Css.displayFlex
+            , Css.hover [ Css.backgroundColor Tailwind.gray200 ]
+            , Css.height (px 50)
+            ]
         ]
-        (frame
-            :: ticks dayHeight
-            ++ (List.map rangeSvg ranges |> List.concat)
-        )
-
-
-weekendView : Html msg
-weekendView =
-    Svg.Styled.svg
-        [ Svg.Attributes.width width
-        , Svg.Attributes.height dayHeight
-        , Svg.Attributes.viewBox 0 0 width dayHeight
-        ]
-        (frame
-            :: Svg.Styled.pattern
-                [ Svg.Styled.Attributes.id "stripes"
-                , Svg.Attributes.x 0
-                , Svg.Attributes.y 0
-                , Svg.Attributes.width 10
-                , Svg.Attributes.height 10
-                , Svg.Styled.Attributes.patternUnits "userSpaceOnUse"
+        [ dateView zone today day.date
+        , div
+            [ css
+                [ Css.flexGrow (Css.int 1)
+                , Css.displayFlex
+                , Css.borderLeft3 (px 1) Css.solid Tailwind.gray400
+                , Css.borderRight3 (px 1) Css.solid Tailwind.gray400
+                , Css.position Css.relative
                 ]
-                [ Svg.Styled.line
-                    [ Svg.Attributes.x1 10
-                    , Svg.Attributes.y1 0
-                    , Svg.Attributes.x2 0
-                    , Svg.Attributes.y2 10
-                    , Svg.Styled.Attributes.stroke "darkgray"
-                    ]
+            ]
+            ((case day.kind of
+                Day.Default ranges ->
+                    List.map rangeView ranges
+
+                _ ->
                     []
+             )
+                ++ slotsView
+            )
+        , div
+            [ css
+                [ Css.width (px 70)
+                , Css.padding (rem 0.5)
+                , Css.displayFlex
+                , Css.justifyContent Css.center
+                , Css.alignItems Css.center
                 ]
-            :: Svg.Styled.rect
-                [ Svg.Attributes.x 0
-                , Svg.Attributes.y 0
-                , Svg.Attributes.width width
-                , Svg.Attributes.height dayHeight
-                , Svg.Styled.Attributes.fill "url(#stripes)"
+            ]
+            [ if Day.workingHours day == Duration.zero then
+                text "-"
+
+              else
+                Day.workingHours day
+                    |> Duration.description
+                    |> text
+            ]
+        , div
+            [ css
+                [ Css.width (px 70)
+                , Css.padding (rem 0.5)
+                , Css.displayFlex
+                , Css.justifyContent Css.center
+                , Css.alignItems Css.center
+                ]
+            ]
+            [ if Day.aapHours day == Duration.zero then
+                text "-"
+
+              else
+                Day.aapHours day
+                    |> Duration.description
+                    |> text
+            ]
+        ]
+
+
+dateView : Zone -> Posix -> Posix -> Html msg
+dateView zone today date =
+    div
+        [ css
+            [ Css.width (px 130)
+            , Css.padding (rem 1)
+            , Css.displayFlex
+            , Css.justifyContent Css.flexEnd
+            , Css.alignItems Css.center
+            ]
+        ]
+        [ div
+            [ css
+                [ Css.color
+                    (if isSameDay zone today date then
+                        Css.hex "4285F4"
+
+                     else
+                        Css.hex "000000"
+                    )
+                ]
+            ]
+            [ text <| formatDate zone date ]
+        ]
+
+
+units : Int
+units =
+    (to - from |> (*) 60 |> round) // 15
+
+
+ticks : List Float
+ticks =
+    List.range (from * 4 |> round) (to * 4 |> round)
+        |> List.map toFloat
+        |> List.map (\e -> e / 4)
+        |> dropLast
+
+
+dropLast : List a -> List a
+dropLast list =
+    List.take (List.length list - 1) list
+
+
+slotsView : List (Html msg)
+slotsView =
+    let
+        firstCount =
+            (from * 60 |> round |> modBy 60) // 15
+    in
+    (List.take firstCount ticks :: (List.drop firstCount ticks |> List.Extra.greedyGroupsOf 4))
+        |> List.map slotView
+
+
+slotView : List Float -> Html msg
+slotView list =
+    let
+        size =
+            List.length list
+    in
+    div
+        [ css
+            [ Css.borderRight3 (px 2) Css.solid Tailwind.gray400
+            , Css.lastChild [ Css.border Css.zero ]
+            , Css.width (pct (100 * toFloat size / toFloat units))
+            , Css.displayFlex
+            ]
+        ]
+        (List.repeat size
+            (div
+                [ css
+                    [ Css.borderRight3 (px 1) Css.solid Tailwind.gray400
+                    , Css.lastChild [ Css.border Css.zero ]
+                    , Css.width (pct (100 / toFloat size))
+                    ]
                 ]
                 []
-            :: ticks dayHeight
+            )
         )
 
 
-frame : Svg msg
-frame =
-    Svg.Styled.rect
-        [ Svg.Attributes.x 0
-        , Svg.Attributes.y 0
-        , Svg.Attributes.width width
-        , Svg.Attributes.height dayHeight
-        , Svg.Styled.Attributes.fill "transparent"
+rangeView : Range -> Html msg
+rangeView range =
+    div
+        [ css
+            [ Css.position Css.absolute
+            , Css.top Css.zero
+            , Css.left (pct <| (Time.toFloat range.begin - from) / (to - from) * 100)
+            , Css.width (pct <| (Range.duration range |> Duration.toFloat) / (to - from) * 100)
+            , Css.bottom Css.zero
+            , Css.displayFlex
+            ]
         ]
-        []
-
-
-rangeSvg : Range -> List (Svg msg)
-rangeSvg range =
-    let
-        x =
-            range.begin
-                |> Range.toFloat
-                |> (\i -> i - from)
-                |> (*) (width / numberOfHours)
-
-        width2 =
-            (range |> Range.duration |> Duration.toFloat |> (*) (width / numberOfHours)) - 6
-
-        height =
-            dayHeight - 6
-    in
-    [ Svg.Styled.rect
-        [ Svg.Attributes.x (x + 3)
-        , Svg.Attributes.y 3
-        , Svg.Attributes.width width2
-        , Svg.Attributes.height height
-        , Svg.Styled.Attributes.fill <| Code.color range.code
-        , Svg.Attributes.rx 2
-        , Svg.Attributes.ry 2
+        [ div
+            [ css
+                [ Css.backgroundColor (Code.backgroundColor range.code)
+                , Css.color (Code.color range.code)
+                , Css.marginTop (rem 0.2)
+                , Css.marginRight (rem 0.2)
+                , Css.marginBottom (rem 0.2)
+                , Css.flexGrow (Css.int 1)
+                , Css.padding (rem 0.2)
+                ]
+            ]
+            [ div [ css [ Css.fontSize (rem 0.9) ] ] [ text <| Code.toString range.code ]
+            , span
+                [ css
+                    [ Css.fontSize (rem 0.7)
+                    ]
+                ]
+                [ text <| Time.description range.begin ++ " - " ++ Time.description range.end ]
+            ]
         ]
-        []
-    , Svg.Styled.text_
-        [ Svg.Attributes.x (x + 7)
-        , Svg.Attributes.y 16
-        , Svg.Styled.Attributes.fill "black"
-        , Svg.Styled.Attributes.fontSize "12px"
-        ]
-        [ [ Range.description range.begin
-          , Code.toString range.code
-          ]
-            |> String.join " "
-            |> Svg.Styled.text
-        ]
-    , Svg.Styled.text_
-        [ Svg.Attributes.x (x + width2 - 29)
-        , Svg.Attributes.y (height - 2)
-        , Svg.Styled.Attributes.fill "black"
-        , Svg.Styled.Attributes.fontSize "12px"
-        ]
-        [ Svg.Styled.text <| Range.description range.end ]
-    ]
 
 
-ticks : Float -> List (Svg msg)
-ticks height =
-    List.range (ceiling from) (floor to)
-        |> List.map toFloat
-        |> List.map (\e -> e - from)
-        |> List.map ((*) (width / numberOfHours))
-        |> List.map (tick height)
-
-
-tick : Float -> Float -> Svg msg
-tick height x =
-    Svg.Styled.line
-        [ Svg.Attributes.x1 x
-        , Svg.Attributes.y1 0
-        , Svg.Attributes.x2 x
-        , Svg.Attributes.y2 height
-        , Svg.Styled.Attributes.stroke "darkgray"
+weekendView : Zone -> Posix -> Posix -> Html msg
+weekendView zone today day =
+    div
+        [ css
+            [ Css.displayFlex
+            , Css.height (px 50)
+            ]
         ]
-        []
+        [ dateView zone today day
+        , div
+            [ css
+                [ Css.flexGrow (Css.int 1)
+                , Css.displayFlex
+                , Css.borderLeft3 (px 1) Css.solid Tailwind.gray400
+                , Css.borderRight3 (px 1) Css.solid Tailwind.gray400
+                , Css.position Css.relative
+                , Css.property "background-image" "linear-gradient(-45deg, transparent 49%, darkgray 49% 50%, transparent 50% 99%, darkgray 99%);"
+                , Css.backgroundSize2 (px 10) (px 10)
+                ]
+            ]
+            slotsView
+        , div
+            [ css
+                [ Css.width (px 156)
+                , Css.padding (rem 0.5)
+                ]
+            ]
+            []
+        ]
+
+
+width : Float
+width =
+    800
 
 
 isSameDay : Zone -> Posix -> Posix -> Bool
@@ -519,8 +455,8 @@ modal modalAttributes attributes elements =
             [ Css.display Css.block
             , Css.position Css.fixed
             , Css.zIndex (Css.int 1)
-            , Css.left zero
-            , Css.top zero
+            , Css.left Css.zero
+            , Css.top Css.zero
             , Css.width (pct 100)
             , Css.height (pct 100)
             , Css.overflow Css.auto

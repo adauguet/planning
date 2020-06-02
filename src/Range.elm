@@ -1,7 +1,9 @@
-module Range exposing (Range, Time(..), description, duration, sum, toFloat, toMinutes)
+module Range exposing (Range, duration, encode, sum)
 
 import Code exposing (Code)
 import Duration exposing (Duration)
+import Json.Encode as E exposing (Value)
+import Time.Time as Time exposing (Time)
 
 
 type alias Range =
@@ -13,7 +15,7 @@ type alias Range =
 
 duration : Range -> Duration
 duration range =
-    diff range.begin range.end
+    Time.diff range.begin range.end
 
 
 sum : List Range -> Duration
@@ -24,27 +26,10 @@ sum ranges =
         |> Duration.fromMinutes
 
 
-type Time
-    = Time ( Int, Int )
-
-
-toFloat : Time -> Float
-toFloat (Time ( h, m )) =
-    Basics.toFloat h + (Basics.toFloat m / 60)
-
-
-toMinutes : Time -> Int
-toMinutes (Time ( h, m )) =
-    60 * h + m
-
-
-diff : Time -> Time -> Duration
-diff from to =
-    toMinutes to - toMinutes from |> Duration.fromMinutes
-
-
-description : Time -> String
-description (Time ( h, m )) =
-    [ h, m ]
-        |> List.map (String.fromInt >> String.padLeft 2 '0')
-        |> String.join ":"
+encode : Range -> Value
+encode range =
+    E.object
+        [ ( "begin", Time.encode range.begin )
+        , ( "end", Time.encode range.end )
+        , ( "code", E.string <| Code.toString range.code )
+        ]

@@ -2,6 +2,9 @@
     <head>
         <meta name="viewport" content="width=device-width, initial-scale=1.0, shrink-to-fit=no">
         <meta charset="utf-8"/>
+        <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@300;400;500;700;900&display=swap" rel="stylesheet">
+        <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/1.5.3/jspdf.debug.js" integrity="sha384-NaWTHo/8YCBYJ59830LTz/P4aQZK1sS0SneOgAvhsIl3zBu8r9RevNg5lHCHAuQ/" crossorigin="anonymous"></script>
+        <script src="pdf.js"></script>
     </head>
     <body>
         <script src="elm.min.js"></script>
@@ -9,6 +12,9 @@
         <script>
             var app = Elm.Main.init({
                 node: document.getElementById('elm'),
+            });
+            app.ports.export.subscribe(function(object) {
+                generate(object);
             });
         </script>
     </body>

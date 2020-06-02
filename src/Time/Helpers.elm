@@ -1,11 +1,14 @@
 module Time.Helpers exposing
-    ( monthToString
+    ( formatDate
+    , isWeekend
+    , monthString
+    , monthYearString
     , posixDecoder
     , posixEncode
     , posixToDate
     , posixToDateTime
     , posixToTime
-    , weekdayToString
+    , weekdayString
     )
 
 import Json.Decode as D exposing (Decoder)
@@ -27,7 +30,7 @@ posixToDate : Zone -> Posix -> String
 posixToDate zone posix =
     String.concat
         [ Time.toWeekday zone posix
-            |> weekdayToString
+            |> weekdayString
         , " "
         , Time.toDay zone posix
             |> String.fromInt
@@ -106,66 +109,98 @@ monthToInt month =
             12
 
 
-monthToString : Month -> String
-monthToString month =
-    case month of
-        Jan ->
-            "January"
+isWeekend : Zone -> Posix -> Bool
+isWeekend zone posix =
+    case Time.toWeekday zone posix of
+        Time.Sat ->
+            True
 
-        Feb ->
-            "February"
+        Time.Sun ->
+            True
 
-        Mar ->
-            "March"
-
-        Apr ->
-            "April"
-
-        May ->
-            "May"
-
-        Jun ->
-            "June"
-
-        Jul ->
-            "July"
-
-        Aug ->
-            "August"
-
-        Sep ->
-            "September"
-
-        Oct ->
-            "October"
-
-        Nov ->
-            "November"
-
-        Dec ->
-            "December"
+        _ ->
+            False
 
 
-weekdayToString : Weekday -> String
-weekdayToString weekday =
+monthYearString : Zone -> Posix -> String
+monthYearString zone posix =
+    monthString zone posix ++ " " ++ (String.fromInt <| Time.toYear zone posix)
+
+
+formatDate : Zone -> Posix -> String
+formatDate zone posix =
+    [ Time.toWeekday zone posix |> weekdayString
+    , toDayString zone posix
+    , monthString zone posix
+    ]
+        |> String.join " "
+
+
+toDayString : Zone -> Posix -> String
+toDayString zone =
+    Time.toDay zone >> String.fromInt
+
+
+weekdayString : Weekday -> String
+weekdayString weekday =
     case weekday of
         Mon ->
-            "Monday"
+            "lundi"
 
         Tue ->
-            "Tuesday"
+            "mardi"
 
         Wed ->
-            "Wednesday"
+            "mercredi"
 
         Thu ->
-            "Thursday"
+            "jeudi"
 
         Fri ->
-            "Friday"
+            "vendredi"
 
         Sat ->
-            "Saturday"
+            "samedi"
 
         Sun ->
-            "Sunday"
+            "dimanche"
+
+
+monthString : Zone -> Posix -> String
+monthString zone posix =
+    case Time.toMonth zone posix of
+        Jan ->
+            "janvier"
+
+        Feb ->
+            "février"
+
+        Mar ->
+            "mars"
+
+        Apr ->
+            "avril"
+
+        May ->
+            "mai"
+
+        Jun ->
+            "juin"
+
+        Jul ->
+            "juillet"
+
+        Aug ->
+            "août"
+
+        Sep ->
+            "septembre"
+
+        Oct ->
+            "octobre"
+
+        Nov ->
+            "novembre"
+
+        Dec ->
+            "décembre"

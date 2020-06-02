@@ -1,4 +1,6 @@
-module Code exposing (Code(..), color, comment, description, isPaid, selectList, toString)
+module Code exposing (Code(..), backgroundColor, color, comment, description, isPaid, selectList, toString)
+
+import Css exposing (Color)
 
 
 type Code
@@ -104,18 +106,45 @@ comment code =
             ""
 
 
-color : Code -> String
+backgroundColor : Code -> Color
+backgroundColor code =
+    case code of
+        T ->
+            Css.hex "4285F4"
+
+        TT ->
+            Css.hex "4285F4"
+
+        HS ->
+            Css.hex "4285F4"
+
+        AAP ->
+            Css.hex "E1E1E1"
+
+        AT ->
+            Css.hex "E1E1E1"
+
+        NT ->
+            Css.hex "E1E1E1"
+
+        _ ->
+            Css.hex "63DA38"
+
+
+color : Code -> Color
 color code =
     case code of
         T ->
-            "hsl(204, 86%, 53%)"
+            Css.hex "FFFFFF"
 
-        -- TT ->
-        --     "#63B3ED"
-        -- HS ->
-        --     "#3182CE"
+        TT ->
+            Css.hex "FFFFFF"
+
+        HS ->
+            Css.hex "FFFFFF"
+
         _ ->
-            "#CBD5E0"
+            Css.hex "3C4043"
 
 
 isPaid : Code -> Bool

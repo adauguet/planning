@@ -9,6 +9,7 @@ import Html.Styled.Events exposing (on, onCheck, onClick)
 import Json.Decode as D exposing (Decoder)
 import List.Extra
 import Range exposing (Range)
+import Time.Time as Time exposing (Time(..))
 
 
 
@@ -72,36 +73,36 @@ init kind =
 
 default : List Range
 default =
-    [ { begin = Range.Time ( 7, 30 )
-      , end = Range.Time ( 8, 30 )
+    [ { begin = Time ( 7, 30 )
+      , end = Time ( 8, 30 )
       , code = Code.T
       }
-    , { begin = Range.Time ( 8, 30 )
-      , end = Range.Time ( 10, 0 )
+    , { begin = Time ( 8, 30 )
+      , end = Time ( 10, 0 )
       , code = Code.TT
       }
-    , { begin = Range.Time ( 10, 0 )
-      , end = Range.Time ( 11, 30 )
+    , { begin = Time ( 10, 0 )
+      , end = Time ( 11, 30 )
       , code = Code.HS
       }
-    , { begin = Range.Time ( 11, 30 )
-      , end = Range.Time ( 13, 0 )
+    , { begin = Time ( 11, 30 )
+      , end = Time ( 13, 0 )
       , code = Code.NT
       }
-    , { begin = Range.Time ( 13, 0 )
-      , end = Range.Time ( 14, 30 )
+    , { begin = Time ( 13, 0 )
+      , end = Time ( 14, 30 )
       , code = Code.RCR
       }
-    , { begin = Range.Time ( 14, 30 )
-      , end = Range.Time ( 16, 0 )
+    , { begin = Time ( 14, 30 )
+      , end = Time ( 16, 0 )
       , code = Code.AGE
       }
-    , { begin = Range.Time ( 16, 0 )
-      , end = Range.Time ( 17, 30 )
+    , { begin = Time ( 16, 0 )
+      , end = Time ( 17, 30 )
       , code = Code.AT
       }
-    , { begin = Range.Time ( 17, 30 )
-      , end = Range.Time ( 19, 0 )
+    , { begin = Time ( 17, 30 )
+      , end = Time ( 19, 0 )
       , code = Code.AAP
       }
     ]
@@ -121,8 +122,8 @@ default =
 
 newRange : Range
 newRange =
-    { begin = Range.Time ( 8, 0 )
-    , end = Range.Time ( 12, 0 )
+    { begin = Time ( 8, 0 )
+    , end = Time ( 12, 0 )
     , code = Code.T
     }
 
@@ -140,8 +141,8 @@ type Msg
 
 
 type RangeMsg
-    = DidSelectBeginning Range.Time
-    | DidSelectEnd Range.Time
+    = DidSelectBeginning Time
+    | DidSelectEnd Time
     | DidSelectCode Code
 
 
@@ -212,7 +213,7 @@ validateRanges ranges =
 
 validateEachRanges : List Range -> Result String (List Range)
 validateEachRanges ranges =
-    if List.all (\r -> Range.toMinutes r.begin < Range.toMinutes r.end) ranges then
+    if List.all (\r -> Time.toMinutes r.begin < Time.toMinutes r.end) ranges then
         Ok ranges
 
     else
@@ -225,7 +226,7 @@ validateConsecutiveRanges ranges =
         validate r =
             case r of
                 first :: second :: tail ->
-                    Range.toMinutes first.end <= Range.toMinutes second.begin && validate (second :: tail)
+                    Time.toMinutes first.end <= Time.toMinutes second.begin && validate (second :: tail)
 
                 _ ->
                     True
@@ -341,7 +342,7 @@ targetSelectedIndex items msg =
             )
 
 
-ticks : List Range.Time
+ticks : List Time
 ticks =
     let
         mod a b =
@@ -351,20 +352,16 @@ ticks =
         |> List.map ((*) 15)
         |> List.map (mod 60)
         |> List.map (Tuple.mapFirst ((+) 7))
-        |> List.map Range.Time
+        |> List.map Time
 
 
-timeSelect : Bool -> List Range.Time -> Range.Time -> (Range.Time -> msg) -> Html msg
-timeSelect isDisabled times (Range.Time selectedTime) msg =
+timeSelect : Bool -> List Time -> Time -> (Time -> msg) -> Html msg
+timeSelect isDisabled times selectedTime msg =
     let
-        timeView (Range.Time ( hours, minutes )) =
-            option [ selected (( hours, minutes ) == selectedTime) ]
-                [ text
-                    (String.padLeft 2 '0' (String.fromInt hours)
-                        ++ ":"
-                        ++ String.padLeft 2 '0' (String.fromInt minutes)
-                    )
-                ]
+        timeView time =
+            option
+                [ selected (time == selectedTime) ]
+                [ text <| Time.description time ]
     in
     select
         [ on "input" (targetSelectedIndex times msg)
