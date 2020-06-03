@@ -1,4 +1,4 @@
-module Edit exposing (Model, Msg, init, update, view)
+module Edit exposing (Model, Msg, default, init, update, view)
 
 import Code exposing (Code)
 import Css

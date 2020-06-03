@@ -83,6 +83,7 @@ update msg model =
                 , zone = Just here
                 , days = computeDays here now
               }
+                |> demo
             , Cmd.none
             )
 
@@ -128,6 +129,16 @@ update msg model =
 
                 _ ->
                     ( model, Cmd.none )
+
+
+demo : Model -> Model
+demo model =
+    case List.Extra.getAt 2 model.days of
+        Just day ->
+            { model | days = List.Extra.setAt 2 { day | kind = Day.Default Edit.default } model.days }
+
+        Nothing ->
+            model
 
 
 encode : Zone -> Posix -> Model -> Value
