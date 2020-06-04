@@ -1,12 +1,13 @@
 port module Main exposing (main)
 
+-- import Demo
+
 import Browser exposing (Document, UrlRequest)
 import Browser.Navigation exposing (Key)
 import Code
 import Css exposing (pct, px, rem)
 import Css.Global
 import Day exposing (Day)
-import Demo
 import Derberos.Date.Calendar exposing (getCurrentMonthDates)
 import Duration exposing (Duration(..))
 import Edit
@@ -84,7 +85,7 @@ update msg model =
                 , zone = Just here
                 , days = computeDays here now
               }
-                |> demo
+              -- |> demo
             , Cmd.none
             )
 
@@ -132,14 +133,14 @@ update msg model =
                     ( model, Cmd.none )
 
 
-demo : Model -> Model
-demo model =
-    case List.Extra.getAt 2 model.days of
-        Just day ->
-            { model | days = List.Extra.setAt 2 { day | kind = Day.Default Demo.ranges } model.days }
 
-        Nothing ->
-            model
+-- demo : Model -> Model
+-- demo model =
+--     case List.Extra.getAt 2 model.days of
+--         Just day ->
+--             { model | days = List.Extra.setAt 2 { day | kind = Day.Default Demo.ranges } model.days }
+--         Nothing ->
+--             model
 
 
 encode : Zone -> Posix -> Model -> Value

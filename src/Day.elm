@@ -53,7 +53,11 @@ aapHours day =
 encode : Zone -> Day -> Value
 encode zone day =
     E.object
-        (( "date", E.string <| Time.Helpers.formatDate zone day.date ) :: encodeKind day.kind)
+        ([ ( "date", E.string <| Time.Helpers.formatDate zone day.date )
+         , ( "is_weekend", E.bool <| Time.Helpers.isWeekend zone day.date )
+         ]
+            ++ encodeKind day.kind
+        )
 
 
 encodeKind : Kind -> List ( String, Value )

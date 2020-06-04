@@ -73,12 +73,12 @@ init kind =
 
 default : List Range
 default =
-    [ { begin = Time ( 8, 0 )
-      , end = Time ( 12, 0 )
+    [ { begin = Time ( 8, 30 )
+      , end = Time ( 12, 30 )
       , code = Code.T
       }
     , { begin = Time ( 14, 0 )
-      , end = Time ( 18, 0 )
+      , end = Time ( 17, 30 )
       , code = Code.T
       }
     ]
