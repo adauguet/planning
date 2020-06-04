@@ -6,6 +6,7 @@ import Code
 import Css exposing (pct, px, rem)
 import Css.Global
 import Day exposing (Day)
+import Demo
 import Derberos.Date.Calendar exposing (getCurrentMonthDates)
 import Duration exposing (Duration(..))
 import Edit
@@ -19,7 +20,7 @@ import Tailwind
 import Task
 import Time exposing (Posix, Zone)
 import Time.Helpers exposing (formatDate, monthYearString)
-import Time.Time as Time
+import Time.Time as Time exposing (Time(..))
 import Url exposing (Url)
 
 
@@ -135,7 +136,7 @@ demo : Model -> Model
 demo model =
     case List.Extra.getAt 2 model.days of
         Just day ->
-            { model | days = List.Extra.setAt 2 { day | kind = Day.Default Edit.default } model.days }
+            { model | days = List.Extra.setAt 2 { day | kind = Day.Default Demo.ranges } model.days }
 
         Nothing ->
             model
@@ -199,6 +200,7 @@ body model =
     , div
         [ css [ Css.padding (rem 1), Css.alignSelf Css.flexEnd ] ]
         [ button [ onClick ClickedExport ] [ text "Exporter" ] ]
+    , headers
     , case ( model.zone, model.time ) of
         ( Just zone, Just time ) ->
             div []
@@ -225,14 +227,105 @@ body model =
     ]
 
 
-from : Float
+from : Time
 from =
-    7.5
+    Time ( 7, 30 )
 
 
-to : Float
+to : Time
 to =
-    19
+    Time ( 19, 0 )
+
+
+ticks : List Time
+ticks =
+    Time.range from to (Duration.fromMinutes 15)
+
+
+slotView : Int -> Time -> Html msg
+slotView units time =
+    let
+        borderWidth =
+            if Time.isOnTheDot time then
+                2
+
+            else
+                1
+    in
+    div
+        [ css
+            [ Css.borderLeft3 (px borderWidth) Css.solid Tailwind.gray400
+            , Css.lastChild [ Css.width Css.zero ]
+            , Css.width (pct (100 / toFloat units))
+            , Css.displayFlex
+            ]
+        ]
+        []
+
+
+hourView : Int -> Time -> Html msg
+hourView units time =
+    let
+        borderWidth =
+            if Time.isOnTheDot time then
+                2
+
+            else
+                1
+    in
+    div
+        [ css
+            [ Css.borderLeft3 (px borderWidth) Css.solid Tailwind.gray400
+            , Css.lastChild [ Css.width Css.zero ]
+            , Css.width (pct (100 / toFloat units))
+            , Css.displayFlex
+            , Css.position Css.relative
+            ]
+        ]
+        [ if Time.isOnTheDot time then
+            div
+                [ css
+                    [ Css.fontSize (px 10)
+                    , Css.color Tailwind.gray500
+                    , Css.fontWeight (Css.int 600)
+                    , Css.position Css.absolute
+                    , Css.left (px -14)
+                    , Css.top (px -14)
+                    ]
+                ]
+                [ text <| Time.description time ]
+
+          else
+            text ""
+        ]
+
+
+headers : Html Msg
+headers =
+    div
+        [ css
+            [ Css.displayFlex
+            , Css.hover [ Css.backgroundColor Tailwind.gray200 ]
+            , Css.height (px 10)
+            ]
+        ]
+        [ div [ css [ Css.width (px 130), Css.padding (rem 1) ] ] []
+        , div
+            [ css
+                [ Css.flexGrow (Css.int 1)
+                , Css.displayFlex
+                , Css.position Css.relative
+                ]
+            ]
+            (List.map (hourView (List.length ticks)) ticks)
+        , div
+            [ css
+                [ Css.width (px 156)
+                , Css.padding (rem 0.5)
+                ]
+            ]
+            []
+        ]
 
 
 dayView : Zone -> Posix -> ( Int, Day ) -> Html Msg
@@ -250,8 +343,6 @@ dayView zone today ( index, day ) =
             [ css
                 [ Css.flexGrow (Css.int 1)
                 , Css.displayFlex
-                , Css.borderLeft3 (px 1) Css.solid Tailwind.gray400
-                , Css.borderRight3 (px 1) Css.solid Tailwind.gray400
                 , Css.position Css.relative
                 ]
             ]
@@ -262,7 +353,7 @@ dayView zone today ( index, day ) =
                 _ ->
                     []
              )
-                ++ slotsView
+                ++ List.map (slotView (List.length ticks)) ticks
             )
         , div
             [ css
@@ -307,89 +398,34 @@ dateView zone today date =
         [ css
             [ Css.width (px 130)
             , Css.padding (rem 1)
-            , Css.displayFlex
-            , Css.justifyContent Css.flexEnd
-            , Css.alignItems Css.center
+            , Css.color
+                (if isSameDay zone today date then
+                    Css.hex "4285F4"
+
+                 else
+                    Css.hex "000000"
+                )
             ]
         ]
-        [ div
-            [ css
-                [ Css.color
-                    (if isSameDay zone today date then
-                        Css.hex "4285F4"
-
-                     else
-                        Css.hex "000000"
-                    )
-                ]
-            ]
-            [ text <| formatDate zone date ]
+        [ text <| formatDate zone date
         ]
-
-
-units : Int
-units =
-    (to - from |> (*) 60 |> round) // 15
-
-
-ticks : List Float
-ticks =
-    List.range (from * 4 |> round) (to * 4 |> round)
-        |> List.map toFloat
-        |> List.map (\e -> e / 4)
-        |> dropLast
-
-
-dropLast : List a -> List a
-dropLast list =
-    List.take (List.length list - 1) list
-
-
-slotsView : List (Html msg)
-slotsView =
-    let
-        firstCount =
-            (from * 60 |> round |> modBy 60) // 15
-    in
-    (List.take firstCount ticks :: (List.drop firstCount ticks |> List.Extra.greedyGroupsOf 4))
-        |> List.map slotView
-
-
-slotView : List Float -> Html msg
-slotView list =
-    let
-        size =
-            List.length list
-    in
-    div
-        [ css
-            [ Css.borderRight3 (px 2) Css.solid Tailwind.gray400
-            , Css.lastChild [ Css.border Css.zero ]
-            , Css.width (pct (100 * toFloat size / toFloat units))
-            , Css.displayFlex
-            ]
-        ]
-        (List.repeat size
-            (div
-                [ css
-                    [ Css.borderRight3 (px 1) Css.solid Tailwind.gray400
-                    , Css.lastChild [ Css.border Css.zero ]
-                    , Css.width (pct (100 / toFloat size))
-                    ]
-                ]
-                []
-            )
-        )
 
 
 rangeView : Range -> Html msg
 rangeView range =
+    let
+        left =
+            (Time.diff from range.begin |> Duration.toFloat) / (Time.diff from to |> Duration.toFloat) * 100
+
+        width_ =
+            (Range.duration range |> Duration.toFloat) / (Time.diff from to |> Duration.toFloat) * 100
+    in
     div
         [ css
             [ Css.position Css.absolute
             , Css.top Css.zero
-            , Css.left (pct <| (Time.toFloat range.begin - from) / (to - from) * 100)
-            , Css.width (pct <| (Range.duration range |> Duration.toFloat) / (to - from) * 100)
+            , Css.left (pct left)
+            , Css.width (pct width_)
             , Css.bottom Css.zero
             , Css.displayFlex
             ]
@@ -429,14 +465,12 @@ weekendView zone today day =
             [ css
                 [ Css.flexGrow (Css.int 1)
                 , Css.displayFlex
-                , Css.borderLeft3 (px 1) Css.solid Tailwind.gray400
-                , Css.borderRight3 (px 1) Css.solid Tailwind.gray400
                 , Css.position Css.relative
                 , Css.property "background-image" "linear-gradient(-45deg, transparent 49%, darkgray 49% 50%, transparent 50% 99%, darkgray 99%);"
                 , Css.backgroundSize2 (px 10) (px 10)
                 ]
             ]
-            slotsView
+            (List.map (slotView (List.length ticks)) ticks)
         , div
             [ css
                 [ Css.width (px 156)

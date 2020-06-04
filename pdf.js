@@ -27,14 +27,14 @@ function drawDay(doc, i, day) {
 
     doc.rect(x, y, width, height);
     doc.setFontSize(10);
-    doc.text(day.date, x+30, y+4, {align:"right"});
+    doc.text(day.date, x+1, y+4.5);
 
-    let dateColumnWidth = 32;
+    let dateColumnWidth = 40;
     doc.line(x+dateColumnWidth, y, x+dateColumnWidth, y + dayHeight);
 
     if (day.kind === "default") {
         day.ranges.forEach(range => {
-            drawRange(doc, range, x+40, y, dayWidth - 50, height);
+            drawRange(doc, range, x+dateColumnWidth, y, dayWidth - dateColumnWidth, height);
         });
     } else {
         console.log(day.kind);

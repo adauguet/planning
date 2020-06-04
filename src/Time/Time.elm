@@ -1,6 +1,7 @@
-module Time.Time exposing (Time(..), description, diff, encode, fromFloat, toFloat, toMinutes)
+module Time.Time exposing (Time(..), description, diff, encode, fromFloat, isOnTheDot, range, toFloat, toMinutes)
 
 import Duration exposing (Duration)
+import Helpers
 import Json.Encode as E exposing (Value)
 
 
@@ -16,6 +17,11 @@ toFloat (Time ( h, m )) =
 toMinutes : Time -> Int
 toMinutes (Time ( h, m )) =
     60 * h + m
+
+
+fromMinutes : Int -> Time
+fromMinutes minutes =
+    Time ( modBy 24 <| minutes // 60, modBy 60 minutes )
 
 
 diff : Time -> Time -> Duration
@@ -45,3 +51,14 @@ encode (Time ( h, m )) =
         [ ( "hours", E.int h )
         , ( "minutes", E.int m )
         ]
+
+
+range : Time -> Time -> Duration -> List Time
+range from to step =
+    Helpers.rangeStep (toMinutes from) (toMinutes to) (Duration.toMinutes step)
+        |> List.map fromMinutes
+
+
+isOnTheDot : Time -> Bool
+isOnTheDot (Time ( _, minutes )) =
+    minutes == 0

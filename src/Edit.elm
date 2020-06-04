@@ -1,4 +1,4 @@
-module Edit exposing (Model, Msg, default, init, update, view)
+module Edit exposing (Model, Msg, init, update, view)
 
 import Code exposing (Code)
 import Css
@@ -73,51 +73,15 @@ init kind =
 
 default : List Range
 default =
-    [ { begin = Time ( 7, 30 )
-      , end = Time ( 8, 30 )
+    [ { begin = Time ( 8, 0 )
+      , end = Time ( 12, 0 )
       , code = Code.T
       }
-    , { begin = Time ( 8, 30 )
-      , end = Time ( 10, 0 )
-      , code = Code.TT
-      }
-    , { begin = Time ( 10, 0 )
-      , end = Time ( 11, 30 )
-      , code = Code.HS
-      }
-    , { begin = Time ( 11, 30 )
-      , end = Time ( 13, 0 )
-      , code = Code.NT
-      }
-    , { begin = Time ( 13, 0 )
-      , end = Time ( 14, 30 )
-      , code = Code.RCR
-      }
-    , { begin = Time ( 14, 30 )
-      , end = Time ( 16, 0 )
-      , code = Code.AGE
-      }
-    , { begin = Time ( 16, 0 )
-      , end = Time ( 17, 30 )
-      , code = Code.AT
-      }
-    , { begin = Time ( 17, 30 )
-      , end = Time ( 19, 0 )
-      , code = Code.AAP
+    , { begin = Time ( 14, 0 )
+      , end = Time ( 18, 0 )
+      , code = Code.T
       }
     ]
-
-
-
--- [ { begin = ( 8, 30 )
---   , end = ( 12, 30 )
---   , code = Code.T
---   }
--- , { begin = ( 14, 0 )
---   , end = ( 18, 0 )
---   , code = Code.TT
---   }
--- ]
 
 
 newRange : Range
