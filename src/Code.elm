@@ -1,6 +1,7 @@
-module Code exposing (Code(..), backgroundColor, color, comment, description, isPaid, selectList, toString)
+module Code exposing (Code(..), backgroundColor, color, comment, decoder, description, isPaid, selectList, toString)
 
 import Css exposing (Color)
+import Json.Decode as D exposing (Decoder)
 
 
 type Code
@@ -182,3 +183,57 @@ isPaid code =
 
         AAP ->
             False
+
+
+decoder : Decoder Code
+decoder =
+    D.string
+        |> D.andThen
+            (\string ->
+                case fromString string of
+                    Just code ->
+                        D.succeed code
+
+                    Nothing ->
+                        D.fail <| "could not decode code: " ++ string
+            )
+
+
+fromString : String -> Maybe Code
+fromString string =
+    case string of
+        "T" ->
+            Just T
+
+        "TT" ->
+            Just TT
+
+        "HS" ->
+            Just HS
+
+        "NT" ->
+            Just NT
+
+        "RCR" ->
+            Just RCR
+
+        "CP" ->
+            Just CP
+
+        "AT" ->
+            Just AT
+
+        "F" ->
+            Just F
+
+        "JS" ->
+            Just JS
+
+        "AAP" ->
+            Just AAP
+
+        "AGE" ->
+            Just AGE
+
+        _ ->
+            Nothing

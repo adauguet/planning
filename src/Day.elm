@@ -1,75 +1,85 @@
-module Day exposing (Day, Kind(..), aapHours, encode, workingHours)
+module Day exposing (Data, Day, aapHours, decoder, encode, encodePDF, workingHours)
 
 import Code
-import Duration exposing (Duration)
+import Day.Kind exposing (Kind(..))
+import Json.Decode as D exposing (Decoder)
+import Json.Decode.Pipeline as DP
 import Json.Encode as E exposing (Value)
-import Range exposing (Range)
+import Posix
+import Range
 import Time exposing (Posix, Zone)
+import Time.FR exposing (weekdayDayMonthString)
 import Time.Helpers
 
 
 type alias Day =
-    { date : Posix
+    { id : Int
+    , date : Posix
     , kind : Kind
     }
 
 
-type Kind
-    = Default (List Range)
-    | Holiday
-    | Solidarity
-
-
-workingHours : Day -> Duration
+workingHours : Day -> Int
 workingHours day =
     case day.kind of
-        Default ranges ->
+        Working ranges ->
             ranges
                 |> List.filter (.code >> Code.isPaid)
                 |> Range.sum
 
         Holiday ->
-            Duration.zero
+            0
 
         Solidarity ->
-            Duration.zero
+            0
 
 
-aapHours : Day -> Duration
+aapHours : Day -> Int
 aapHours day =
     case day.kind of
-        Default ranges ->
+        Working ranges ->
             ranges
                 |> List.filter (\r -> r.code == Code.AAP)
                 |> Range.sum
 
         Holiday ->
-            Duration.zero
+            0
 
         Solidarity ->
-            Duration.zero
+            0
 
 
-encode : Zone -> Day -> Value
-encode zone day =
+encodePDF : Zone -> Day -> Value
+encodePDF zone day =
     E.object
-        ([ ( "date", E.string <| Time.Helpers.formatDate zone day.date )
+        ([ ( "date", E.string <| weekdayDayMonthString zone day.date )
          , ( "is_weekend", E.bool <| Time.Helpers.isWeekend zone day.date )
          ]
-            ++ encodeKind day.kind
+            ++ Day.Kind.encode (Posix.encodePDF zone) day.kind
         )
 
 
-encodeKind : Kind -> List ( String, Value )
-encodeKind kind =
-    case kind of
-        Default ranges ->
-            [ ( "kind", E.string "default" )
-            , ( "ranges", E.list Range.encode ranges )
-            ]
+decoder : Decoder Day
+decoder =
+    D.succeed Day
+        |> DP.required "id" D.int
+        |> DP.required "date" Posix.decoder
+        |> DP.required "kind" Day.Kind.decoder
 
-        Holiday ->
-            [ ( "kind", E.string "holiday" ) ]
 
-        Solidarity ->
-            [ ( "kind", E.string "solidarity" ) ]
+
+-- data
+
+
+type alias Data =
+    { date : Posix
+    , kind : Kind
+    }
+
+
+encode : Data -> Value
+encode data =
+    E.object
+        (( "date", Posix.encode data.date )
+            :: Day.Kind.encode Posix.encode data.kind
+        )

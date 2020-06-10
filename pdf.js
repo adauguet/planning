@@ -1,6 +1,8 @@
 let margin = 15;
 
 function generate(object) {
+  console.log(object);
+  
   var doc = new jsPDF();
 
   doc.setFontSize(12);

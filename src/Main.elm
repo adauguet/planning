@@ -1,16 +1,15 @@
 port module Main exposing (main)
 
--- import Demo
-
 import Browser exposing (Document, UrlRequest)
 import Browser.Navigation exposing (Key)
 import Code
 import Css exposing (pct, px, rem)
 import Css.Global
 import Day exposing (Day)
+import Day.Kind exposing (Kind)
 import Derberos.Date.Calendar exposing (getCurrentMonthDates)
-import Duration exposing (Duration(..))
 import Edit
+import Helpers exposing (rangeStep)
 import Html.Styled exposing (Attribute, Html, button, div, span, text, toUnstyled)
 import Html.Styled.Attributes exposing (css)
 import Html.Styled.Events exposing (onClick)
@@ -19,9 +18,9 @@ import List.Extra
 import Range exposing (Range)
 import Tailwind
 import Task
-import Time exposing (Posix, Zone)
-import Time.Helpers exposing (formatDate, monthYearString)
-import Time.Time as Time exposing (Time(..))
+import Time exposing (Posix, Zone, millisToPosix, posixToMillis)
+import Time.FR exposing (monthYearString, weekdayDayMonthString)
+import Time.Helpers exposing (posixFromHoursMinutes)
 import Url exposing (Url)
 
 
@@ -66,7 +65,7 @@ type Msg
     | ClickedDay Int Day
     | EditMsg Edit.Msg
     | ClickedCancel
-    | ClickedValidate Int (Result String Day.Kind)
+    | ClickedValidate Int (Result String Kind)
     | ClickedExport
 
 
@@ -85,12 +84,16 @@ update msg model =
                 , zone = Just here
                 , days = computeDays here now
               }
-              -- |> demo
             , Cmd.none
             )
 
         ClickedDay index day ->
-            ( { model | state = Edit index <| Edit.init day.kind }, Cmd.none )
+            case ( model.zone, model.time ) of
+                ( Just zone, Just time ) ->
+                    ( { model | state = Edit index <| Edit.init zone time day.kind }, Cmd.none )
+
+                _ ->
+                    ( model, Cmd.none )
 
         EditMsg subMsg ->
             case model.state of
@@ -133,22 +136,12 @@ update msg model =
                     ( model, Cmd.none )
 
 
-
--- demo : Model -> Model
--- demo model =
---     case List.Extra.getAt 2 model.days of
---         Just day ->
---             { model | days = List.Extra.setAt 2 { day | kind = Day.Default Demo.ranges } model.days }
---         Nothing ->
---             model
-
-
 encode : Zone -> Posix -> Model -> Value
 encode zone posix model =
     E.object
         [ ( "name", E.string model.name )
         , ( "month", E.string <| monthYearString zone posix )
-        , ( "days", E.list (Day.encode zone) model.days )
+        , ( "days", E.list (Day.encodePDF zone) model.days )
         ]
 
 
@@ -158,7 +151,7 @@ port export : Value -> Cmd msg
 computeDays : Zone -> Posix -> List Day
 computeDays zone current =
     getCurrentMonthDates zone current
-        |> List.map (\d -> { date = d, kind = Day.Default [] })
+        |> List.map (\d -> { id = 0, date = d, kind = Day.Kind.Working [] })
 
 
 
@@ -201,7 +194,12 @@ body model =
     , div
         [ css [ Css.padding (rem 1), Css.alignSelf Css.flexEnd ] ]
         [ button [ onClick ClickedExport ] [ text "Exporter" ] ]
-    , headers
+    , case ( model.zone, model.time ) of
+        ( Just zone, Just time ) ->
+            headers zone time
+
+        _ ->
+            text ""
     , case ( model.zone, model.time ) of
         ( Just zone, Just time ) ->
             div []
@@ -228,26 +226,38 @@ body model =
     ]
 
 
-from : Time
-from =
-    Time ( 7, 30 )
+from : Zone -> Posix -> Posix
+from zone posix =
+    posixFromHoursMinutes zone posix 7 30
 
 
-to : Time
-to =
-    Time ( 19, 0 )
+to : Zone -> Posix -> Posix
+to zone posix =
+    posixFromHoursMinutes zone posix 19 0
 
 
-ticks : List Time
-ticks =
-    Time.range from to (Duration.fromMinutes 15)
+step : Int
+step =
+    -- 15 minutes in millis
+    15 * 60 * 1000
 
 
-slotView : Int -> Time -> Html msg
-slotView units time =
+dayDuration : Zone -> Int
+dayDuration zone =
+    (to zone (millisToPosix 0) |> posixToMillis) - (from zone (millisToPosix 0) |> posixToMillis)
+
+
+ticks : Zone -> Posix -> List Posix
+ticks zone posix =
+    rangeStep (from zone posix |> posixToMillis) (to zone posix |> posixToMillis) step
+        |> List.map millisToPosix
+
+
+slotView : Zone -> Int -> Posix -> Html msg
+slotView zone units posix =
     let
         borderWidth =
-            if Time.isOnTheDot time then
+            if Time.Helpers.isOnTheDot zone posix then
                 2
 
             else
@@ -264,11 +274,11 @@ slotView units time =
         []
 
 
-hourView : Int -> Time -> Html msg
-hourView units time =
+hourView : Zone -> Int -> Posix -> Html msg
+hourView zone units posix =
     let
         borderWidth =
-            if Time.isOnTheDot time then
+            if Time.Helpers.isOnTheDot zone posix then
                 2
 
             else
@@ -283,7 +293,7 @@ hourView units time =
             , Css.position Css.relative
             ]
         ]
-        [ if Time.isOnTheDot time then
+        [ if Time.Helpers.isOnTheDot zone posix then
             div
                 [ css
                     [ Css.fontSize (px 10)
@@ -294,19 +304,23 @@ hourView units time =
                     , Css.top (px -14)
                     ]
                 ]
-                [ text <| Time.description time ]
+                [ text <| Time.Helpers.hourMinuteString zone posix ]
 
           else
             text ""
         ]
 
 
-headers : Html Msg
-headers =
+headers : Zone -> Posix -> Html Msg
+headers zone posix =
+    let
+        t : List Posix
+        t =
+            ticks zone posix
+    in
     div
         [ css
             [ Css.displayFlex
-            , Css.hover [ Css.backgroundColor Tailwind.gray200 ]
             , Css.height (px 10)
             ]
         ]
@@ -318,7 +332,7 @@ headers =
                 , Css.position Css.relative
                 ]
             ]
-            (List.map (hourView (List.length ticks)) ticks)
+            (List.map (hourView zone <| List.length t) t)
         , div
             [ css
                 [ Css.width (px 156)
@@ -331,6 +345,11 @@ headers =
 
 dayView : Zone -> Posix -> ( Int, Day ) -> Html Msg
 dayView zone today ( index, day ) =
+    let
+        t : List Posix
+        t =
+            ticks zone today
+    in
     div
         [ onClick (ClickedDay index day)
         , css
@@ -348,13 +367,13 @@ dayView zone today ( index, day ) =
                 ]
             ]
             ((case day.kind of
-                Day.Default ranges ->
-                    List.map rangeView ranges
+                Day.Kind.Working ranges ->
+                    List.map (rangeView zone today) ranges
 
                 _ ->
                     []
              )
-                ++ List.map (slotView (List.length ticks)) ticks
+                ++ List.map (slotView zone <| List.length t) t
             )
         , div
             [ css
@@ -365,12 +384,12 @@ dayView zone today ( index, day ) =
                 , Css.alignItems Css.center
                 ]
             ]
-            [ if Day.workingHours day == Duration.zero then
+            [ if Day.workingHours day == 0 then
                 text "-"
 
               else
                 Day.workingHours day
-                    |> Duration.description
+                    |> Time.Helpers.formatDuration
                     |> text
             ]
         , div
@@ -382,12 +401,12 @@ dayView zone today ( index, day ) =
                 , Css.alignItems Css.center
                 ]
             ]
-            [ if Day.aapHours day == Duration.zero then
+            [ if Day.aapHours day == 0 then
                 text "-"
 
               else
                 Day.aapHours day
-                    |> Duration.description
+                    |> Time.Helpers.formatDuration
                     |> text
             ]
         ]
@@ -408,18 +427,22 @@ dateView zone today date =
                 )
             ]
         ]
-        [ text <| formatDate zone date
+        [ text <| weekdayDayMonthString zone date
         ]
 
 
-rangeView : Range -> Html msg
-rangeView range =
+rangeView : Zone -> Posix -> Range -> Html msg
+rangeView zone posix range =
     let
         left =
-            (Time.diff from range.begin |> Duration.toFloat) / (Time.diff from to |> Duration.toFloat) * 100
+            (Time.Helpers.diff (from zone posix) range.begin |> Time.Helpers.millisToHours)
+                / (dayDuration zone |> Time.Helpers.millisToHours)
+                * 100
 
         width_ =
-            (Range.duration range |> Duration.toFloat) / (Time.diff from to |> Duration.toFloat) * 100
+            (Range.duration range |> Time.Helpers.millisToHours)
+                / (dayDuration zone |> Time.Helpers.millisToHours)
+                * 100
     in
     div
         [ css
@@ -448,13 +471,18 @@ rangeView range =
                     [ Css.fontSize (rem 0.7)
                     ]
                 ]
-                [ text <| Time.description range.begin ++ " - " ++ Time.description range.end ]
+                [ text <| Time.Helpers.hourMinuteString zone range.begin ++ " - " ++ Time.Helpers.hourMinuteString zone range.end ]
             ]
         ]
 
 
 weekendView : Zone -> Posix -> Posix -> Html msg
 weekendView zone today day =
+    let
+        t : List Posix
+        t =
+            ticks zone today
+    in
     div
         [ css
             [ Css.displayFlex
@@ -471,7 +499,7 @@ weekendView zone today day =
                 , Css.backgroundSize2 (px 10) (px 10)
                 ]
             ]
-            (List.map (slotView (List.length ticks)) ticks)
+            (List.map (slotView zone <| List.length t) t)
         , div
             [ css
                 [ Css.width (px 156)

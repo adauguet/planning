@@ -1,72 +1,15 @@
 module Time.Helpers exposing
-    ( formatDate
+    ( diff
+    , formatDuration
+    , hourMinuteString
+    , isOnTheDot
     , isWeekend
-    , monthString
-    , monthYearString
-    , posixDecoder
-    , posixEncode
-    , posixToDate
-    , posixToDateTime
-    , posixToTime
-    , weekdayString
+    , millisToHours
+    , posixFromHoursMinutes
     )
 
-import Json.Decode as D exposing (Decoder)
-import Json.Encode as E
-import Time exposing (Month(..), Posix, Weekday(..), Zone)
-
-
-posixDecoder : Decoder Posix
-posixDecoder =
-    D.map (\int -> Time.millisToPosix (int * 1000)) D.int
-
-
-posixEncode : Posix -> E.Value
-posixEncode posix =
-    E.int (Time.posixToMillis posix // 1000)
-
-
-posixToDate : Zone -> Posix -> String
-posixToDate zone posix =
-    String.concat
-        [ Time.toWeekday zone posix
-            |> weekdayString
-        , " "
-        , Time.toDay zone posix
-            |> String.fromInt
-            |> String.padLeft 2 '0'
-        , "/"
-        , Time.toMonth zone posix
-            |> monthToInt
-            |> String.fromInt
-            |> String.padLeft 2 '0'
-        , "/"
-        , Time.toYear zone posix
-            |> String.fromInt
-            |> String.padLeft 4 '0'
-        ]
-
-
-posixToTime : Zone -> Posix -> String
-posixToTime zone posix =
-    String.concat
-        [ Time.toHour zone posix
-            |> String.fromInt
-            |> String.padLeft 2 '0'
-        , ":"
-        , Time.toMinute zone posix
-            |> String.fromInt
-            |> String.padLeft 2 '0'
-        ]
-
-
-posixToDateTime : Zone -> Posix -> String
-posixToDateTime zone posix =
-    String.concat
-        [ posixToDate zone posix
-        , " "
-        , posixToTime zone posix
-        ]
+import Derberos.Date.Core exposing (civilToPosix, newDateRecord)
+import Time exposing (Month(..), Posix, Weekday(..), Zone, posixToMillis)
 
 
 monthToInt : Month -> Int
@@ -122,85 +65,72 @@ isWeekend zone posix =
             False
 
 
-monthYearString : Zone -> Posix -> String
-monthYearString zone posix =
-    monthString zone posix ++ " " ++ (String.fromInt <| Time.toYear zone posix)
+posixFromHoursMinutes : Zone -> Posix -> Int -> Int -> Posix
+posixFromHoursMinutes zone posix h min =
+    let
+        y =
+            Time.toYear zone posix
+
+        m =
+            Time.toMonth zone posix |> monthToInt
+
+        d =
+            Time.toDay zone posix
+    in
+    newDateRecord y m d h min 0 0 zone |> civilToPosix
 
 
-formatDate : Zone -> Posix -> String
-formatDate zone posix =
-    [ Time.toWeekday zone posix |> weekdayString
-    , toDayString zone posix
-    , monthString zone posix
-    ]
-        |> String.join " "
+hourMinuteString : Zone -> Posix -> String
+hourMinuteString zone posix =
+    let
+        h =
+            Time.toHour zone posix
+                |> String.fromInt
+                |> String.padLeft 2 '0'
+
+        m =
+            Time.toMinute zone posix
+                |> String.fromInt
+                |> String.padLeft 2 '0'
+    in
+    h ++ ":" ++ m
 
 
-toDayString : Zone -> Posix -> String
-toDayString zone =
-    Time.toDay zone >> String.fromInt
+isOnTheDot : Zone -> Posix -> Bool
+isOnTheDot zone posix =
+    Time.toMinute zone posix == 0
 
 
-weekdayString : Weekday -> String
-weekdayString weekday =
-    case weekday of
-        Mon ->
-            "lundi"
+millisToHours : Int -> Float
+millisToHours millis =
+    let
+        h =
+            toFloat (millis // (60 * 60 * 1000))
 
-        Tue ->
-            "mardi"
-
-        Wed ->
-            "mercredi"
-
-        Thu ->
-            "jeudi"
-
-        Fri ->
-            "vendredi"
-
-        Sat ->
-            "samedi"
-
-        Sun ->
-            "dimanche"
+        m =
+            toFloat (remainderBy (60 * 60 * 1000) millis // (60 * 1000)) / 60
+    in
+    h + m
 
 
-monthString : Zone -> Posix -> String
-monthString zone posix =
-    case Time.toMonth zone posix of
-        Jan ->
-            "janvier"
+formatDuration : Int -> String
+formatDuration millis =
+    let
+        h =
+            millis
+                // 3600000
+                |> String.fromInt
+                |> String.padLeft 2 '0'
 
-        Feb ->
-            "février"
+        m =
+            modBy 3600000 millis
+                // (60 * 1000)
+                |> String.fromInt
+                |> String.padLeft 2 '0'
+    in
+    h ++ "h" ++ m
 
-        Mar ->
-            "mars"
 
-        Apr ->
-            "avril"
-
-        May ->
-            "mai"
-
-        Jun ->
-            "juin"
-
-        Jul ->
-            "juillet"
-
-        Aug ->
-            "août"
-
-        Sep ->
-            "septembre"
-
-        Oct ->
-            "octobre"
-
-        Nov ->
-            "novembre"
-
-        Dec ->
-            "décembre"
+diff : Posix -> Posix -> Int
+diff from to =
+    posixToMillis to - posixToMillis from

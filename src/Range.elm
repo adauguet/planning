@@ -1,35 +1,44 @@
-module Range exposing (Range, duration, encode, sum)
+module Range exposing (Range, decoder, duration, encode, sum)
 
 import Code exposing (Code)
-import Duration exposing (Duration)
+import Json.Decode as D exposing (Decoder)
+import Json.Decode.Pipeline as DP
 import Json.Encode as E exposing (Value)
-import Time.Time as Time exposing (Time)
+import Posix
+import Time exposing (Posix)
 
 
 type alias Range =
-    { begin : Time
-    , end : Time
+    { begin : Posix
+    , end : Posix
     , code : Code
     }
 
 
-duration : Range -> Duration
+duration : Range -> Int
 duration range =
-    Time.diff range.begin range.end
+    Time.posixToMillis range.end - Time.posixToMillis range.begin
 
 
-sum : List Range -> Duration
+sum : List Range -> Int
 sum ranges =
     ranges
-        |> List.map (duration >> Duration.toMinutes)
+        |> List.map duration
         |> List.foldr (+) 0
-        |> Duration.fromMinutes
 
 
-encode : Range -> Value
-encode range =
+encode : (Posix -> Value) -> Range -> Value
+encode posixEncode range =
     E.object
-        [ ( "begin", Time.encode range.begin )
-        , ( "end", Time.encode range.end )
+        [ ( "begin", posixEncode range.begin )
+        , ( "end", posixEncode range.end )
         , ( "code", E.string <| Code.toString range.code )
         ]
+
+
+decoder : Decoder Range
+decoder =
+    D.succeed Range
+        |> DP.required "begin" Posix.decoder
+        |> DP.required "end" Posix.decoder
+        |> DP.required "code" Code.decoder
