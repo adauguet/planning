@@ -2,10 +2,9 @@ module Edit exposing (Model, Msg, init, update, view)
 
 import Code exposing (Code)
 import Css
-import Day.Kind exposing (Kind)
-import Html.Styled exposing (Html, button, div, input, option, select, text)
-import Html.Styled.Attributes exposing (checked, css, disabled, selected, type_)
-import Html.Styled.Events exposing (on, onCheck, onClick)
+import Html.Styled exposing (Html, button, div, option, select, text)
+import Html.Styled.Attributes exposing (css, selected)
+import Html.Styled.Events exposing (on, onClick)
 import Json.Decode as D exposing (Decoder)
 import List.Extra
 import Range exposing (Range)
@@ -21,65 +20,22 @@ type alias Model =
     { zone : Zone
     , posix : Posix
     , ranges : List Range
-    , dayType : DayType
     , errorMessage : String
     }
 
 
-type DayType
-    = Default
-    | Holiday
-    | Solidarity
+init : Zone -> Posix -> List Range -> Model
+init zone posix ranges =
+    { zone = zone
+    , posix = posix
+    , ranges =
+        if List.isEmpty ranges then
+            default zone posix
 
-
-computeDayKind : Model -> Result String Kind
-computeDayKind model =
-    case model.dayType of
-        Default ->
-            validateRanges model.ranges
-                |> Result.map Day.Kind.Working
-
-        Holiday ->
-            Ok Day.Kind.Holiday
-
-        Solidarity ->
-            Ok Day.Kind.Solidarity
-
-
-init : Zone -> Posix -> Kind -> Model
-init zone posix kind =
-    case kind of
-        Day.Kind.Working [] ->
-            { zone = zone
-            , posix = posix
-            , ranges = default zone posix
-            , dayType = Default
-            , errorMessage = ""
-            }
-
-        Day.Kind.Working ranges ->
-            { zone = zone
-            , posix = posix
-            , ranges = ranges
-            , dayType = Default
-            , errorMessage = ""
-            }
-
-        Day.Kind.Holiday ->
-            { zone = zone
-            , posix = posix
-            , ranges = []
-            , dayType = Holiday
-            , errorMessage = ""
-            }
-
-        Day.Kind.Solidarity ->
-            { zone = zone
-            , posix = posix
-            , ranges = []
-            , dayType = Solidarity
-            , errorMessage = ""
-            }
+        else
+            ranges
+    , errorMessage = ""
+    }
 
 
 default : Zone -> Posix -> List Range
@@ -111,8 +67,6 @@ type Msg
     = OnRangeMsg Int RangeMsg
     | ClickedAddRange
     | ClickedDelete Int
-    | DidCheckHoliday Bool
-    | DidCheckSolidarityDay Bool
 
 
 type RangeMsg
@@ -141,30 +95,6 @@ update msg model =
 
         ClickedDelete index ->
             ( { model | ranges = List.Extra.removeAt index model.ranges }, Cmd.none )
-
-        DidCheckHoliday isChecked ->
-            ( { model
-                | dayType =
-                    if isChecked then
-                        Holiday
-
-                    else
-                        Default
-              }
-            , Cmd.none
-            )
-
-        DidCheckSolidarityDay isChecked ->
-            ( { model
-                | dayType =
-                    if isChecked then
-                        Solidarity
-
-                    else
-                        Default
-              }
-            , Cmd.none
-            )
 
 
 updateRange : RangeMsg -> Range -> Range
@@ -217,7 +147,7 @@ validateConsecutiveRanges ranges =
 -- view
 
 
-view : (Msg -> msg) -> msg -> (Result String Kind -> msg) -> Model -> Html msg
+view : (Msg -> msg) -> msg -> (Result String (List Range) -> msg) -> Model -> Html msg
 view parentMsg clickedCancel clickedValidate model =
     div
         [ css
@@ -226,79 +156,49 @@ view parentMsg clickedCancel clickedValidate model =
             , Css.alignItems Css.flexStart
             ]
         ]
-        [ holiday (model.dayType == Holiday) |> Html.Styled.map parentMsg
-        , solidarityDay (model.dayType == Solidarity) |> Html.Styled.map parentMsg
-        , div []
+        [ div []
             (model.ranges
-                |> List.indexedMap (rangeView model.zone model.posix (model.dayType /= Default))
+                |> List.indexedMap (rangeView model.zone model.posix)
                 |> List.map (Html.Styled.map parentMsg)
             )
-        , button [ onClick <| parentMsg ClickedAddRange, disabled (model.dayType /= Default) ] [ text "Ajouter une plage" ]
+        , button [ onClick <| parentMsg ClickedAddRange ] [ text "Ajouter une plage" ]
         , div [] [ text model.errorMessage ]
         , div [ css [ Css.alignSelf Css.flexEnd ] ]
             [ button [ onClick clickedCancel ] [ text "Annuler" ]
-            , button [ onClick <| clickedValidate <| computeDayKind model ] [ text "Valider" ]
+            , button [ onClick <| clickedValidate <| validateRanges model.ranges ] [ text "Valider" ]
             ]
         ]
 
 
-holiday : Bool -> Html Msg
-holiday isChecked =
-    div []
-        [ input
-            [ type_ "checkbox"
-            , checked isChecked
-            , onCheck DidCheckHoliday
-            ]
-            []
-        , text "Férié"
-        ]
-
-
-solidarityDay : Bool -> Html Msg
-solidarityDay isChecked =
-    div []
-        [ input
-            [ type_ "checkbox"
-            , checked isChecked
-            , onCheck DidCheckSolidarityDay
-            ]
-            []
-        , text "Journée de solidarité"
-        ]
-
-
-rangeView : Zone -> Posix -> Bool -> Int -> Range -> Html Msg
-rangeView zone posix isDisabled index range =
+rangeView : Zone -> Posix -> Int -> Range -> Html Msg
+rangeView zone posix index range =
     div [ css [ Css.displayFlex ] ]
         [ div [ css [ Css.displayFlex, Css.flexDirection Css.column ] ]
-            [ timeSelect zone isDisabled (ticks zone posix) range.begin (DidSelectBeginning >> OnRangeMsg index)
+            [ timeSelect zone (ticks zone posix) range.begin (DidSelectBeginning >> OnRangeMsg index)
             ]
         , div [ css [ Css.displayFlex, Css.flexDirection Css.column ] ]
-            [ timeSelect zone isDisabled (ticks zone posix) range.end (DidSelectEnd >> OnRangeMsg index)
+            [ timeSelect zone (ticks zone posix) range.end (DidSelectEnd >> OnRangeMsg index)
             ]
         , div [ css [ Css.displayFlex, Css.flexDirection Css.column ] ]
-            [ codeSelect isDisabled index Code.selectList range.code
+            [ codeSelect index Code.selectList range.code
             ]
         , div []
             [ button
                 [ onClick (ClickedDelete index)
-                , disabled isDisabled
                 ]
                 [ text "Supprimer" ]
             ]
         ]
 
 
-codeSelect : Bool -> Int -> List Code -> Code -> Html Msg
-codeSelect isDisabled index codes selectedCode =
+codeSelect : Int -> List Code -> Code -> Html Msg
+codeSelect index codes selectedCode =
     let
         optionView code =
             option [ selected (code == selectedCode) ] [ text <| Code.description code ]
     in
     select
         [ on "input" (targetSelectedIndex codes (DidSelectCode >> OnRangeMsg index))
-        , disabled isDisabled
         ]
         (List.map optionView codes)
 
@@ -330,8 +230,8 @@ ticks zone posix =
         |> List.map (\( h, m ) -> posixFromHoursMinutes zone posix h m)
 
 
-timeSelect : Zone -> Bool -> List Posix -> Posix -> (Posix -> msg) -> Html msg
-timeSelect zone isDisabled times selectedTime msg =
+timeSelect : Zone -> List Posix -> Posix -> (Posix -> msg) -> Html msg
+timeSelect zone times selectedTime msg =
     let
         timeView time =
             option
@@ -340,6 +240,5 @@ timeSelect zone isDisabled times selectedTime msg =
     in
     select
         [ on "input" (targetSelectedIndex times msg)
-        , disabled isDisabled
         ]
         (List.map timeView times)

@@ -1,4 +1,4 @@
-module Range exposing (Range, decoder, duration, encode, sum)
+module Range exposing (Range, aapHours, decoder, duration, encode, sum, workingHours)
 
 import Code exposing (Code)
 import Json.Decode as D exposing (Decoder)
@@ -25,6 +25,24 @@ sum ranges =
     ranges
         |> List.map duration
         |> List.foldr (+) 0
+
+
+workingHours : List Range -> Int
+workingHours ranges =
+    ranges
+        |> List.filter (.code >> Code.isPaid)
+        |> sum
+
+
+aapHours : List Range -> Int
+aapHours ranges =
+    ranges
+        |> List.filter (\r -> r.code == Code.AAP)
+        |> sum
+
+
+
+-- json
 
 
 encode : (Posix -> Value) -> Range -> Value

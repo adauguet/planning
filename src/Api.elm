@@ -1,32 +1,34 @@
-module Api exposing (getDays, postDay, putDay)
+module Api exposing (getPlannings, postData, putPlanning)
 
-import Day exposing (Day)
+import Day.Data exposing (Data)
 import Endpoint
 import Http exposing (Error)
 import Json.Decode as D
+import Planning exposing (Planning)
+import Time exposing (Posix)
 
 
-getDays : String -> (Result Error (List Day) -> msg) -> Cmd msg
-getDays host msg =
+getPlannings : String -> Posix -> Posix -> (Result Error (List Planning) -> msg) -> Cmd msg
+getPlannings host from to msg =
     Endpoint.get
-        { url = Endpoint.days host
-        , expect = Http.expectJson msg (D.list Day.decoder)
+        { url = Endpoint.daysFromTo host from to
+        , expect = Http.expectJson msg (D.list Planning.decoder)
         }
 
 
-postDay : String -> Day.Data -> (Result Error () -> msg) -> Cmd msg
-postDay host data msg =
+postData : String -> Data -> (Result Error () -> msg) -> Cmd msg
+postData host data msg =
     Endpoint.post
         { url = Endpoint.days host
-        , body = Http.jsonBody (Day.encode data)
+        , body = Http.jsonBody (Day.Data.encode data)
         , expect = Http.expectWhatever msg
         }
 
 
-putDay : String -> Int -> Day.Data -> (Result Error () -> msg) -> Cmd msg
-putDay host id data msg =
+putPlanning : String -> Planning -> (Result Error () -> msg) -> Cmd msg
+putPlanning host planning msg =
     Endpoint.put
-        { url = Endpoint.day host id
-        , body = Http.jsonBody (Day.encode data)
+        { url = Endpoint.day host planning.id
+        , body = Http.jsonBody (Day.Data.encode planning)
         , expect = Http.expectWhatever msg
         }

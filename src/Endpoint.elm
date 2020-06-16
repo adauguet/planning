@@ -2,13 +2,15 @@ module Endpoint exposing
     ( Endpoint(..)
     , day
     , days
+    , daysFromTo
     , get
     , post
     , put
     )
 
 import Http
-import Url.Builder exposing (QueryParameter, crossOrigin)
+import Time exposing (Posix)
+import Url.Builder exposing (QueryParameter, crossOrigin, int)
 
 
 type Endpoint
@@ -33,6 +35,11 @@ url host paths queryParams =
 days : String -> Endpoint
 days host =
     url host [ "days" ] []
+
+
+daysFromTo : String -> Posix -> Posix -> Endpoint
+daysFromTo host from to =
+    url host [ "days" ] [ int "from" <| Time.posixToMillis from // 1000, int "to" <| Time.posixToMillis to // 1000 ]
 
 
 day : String -> Int -> Endpoint

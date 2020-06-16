@@ -1,20 +1,23 @@
 port module Main exposing (main)
 
+import Api
 import Browser exposing (Document, UrlRequest)
 import Browser.Navigation exposing (Key)
-import Code
-import Css exposing (pct, px, rem)
+import Code exposing (Code, backgroundColor)
+import Css exposing (displayFlex, pct, px, rem)
 import Css.Global
-import Day exposing (Day)
-import Day.Kind exposing (Kind)
-import Derberos.Date.Calendar exposing (getCurrentMonthDates)
+import Derberos.Date.Calendar exposing (getCurrentMonthDates, getFirstDayOfMonth, getLastDayOfMonth)
+import Dict
 import Edit
 import Helpers exposing (rangeStep)
 import Html.Styled exposing (Attribute, Html, button, div, span, text, toUnstyled)
 import Html.Styled.Attributes exposing (css)
 import Html.Styled.Events exposing (onClick)
+import Http exposing (Error)
 import Json.Encode as E exposing (Value)
 import List.Extra
+import Planning exposing (Planning)
+import Posix
 import Range exposing (Range)
 import Tailwind
 import Task
@@ -29,7 +32,8 @@ import Url exposing (Url)
 
 
 type alias Model =
-    { zone : Maybe Zone
+    { host : String
+    , zone : Maybe Zone
     , time : Maybe Posix
     , state : State
     , days : List Day
@@ -37,20 +41,45 @@ type alias Model =
     }
 
 
+type alias Day =
+    { date : Posix
+    , planning : Maybe Planning
+    }
+
+
+encodePDF : Zone -> Day -> Value
+encodePDF zone day =
+    let
+        ranges =
+            case day.planning of
+                Just planning ->
+                    planning.ranges
+
+                Nothing ->
+                    []
+    in
+    E.object
+        [ ( "date", E.string <| weekdayDayMonthString zone day.date )
+        , ( "is_weekend", E.bool <| Time.Helpers.isWeekend zone day.date )
+        , ( "ranges", E.list (Range.encode <| Posix.encodePDF zone) ranges )
+        ]
+
+
 type State
     = Initial
-    | Edit Int Edit.Model
+    | Edit Day Edit.Model
 
 
-init : () -> Url -> Key -> ( Model, Cmd Msg )
-init _ _ _ =
-    ( { zone = Nothing
+init : String -> Url -> Key -> ( Model, Cmd Msg )
+init host _ _ =
+    ( { host = host
+      , zone = Nothing
       , time = Nothing
       , state = Initial
       , days = []
       , name = "Antoine DAUGUET"
       }
-    , Task.perform GotZoneTime <| Task.map2 (\zone posix -> ( zone, posix )) Time.here Time.now
+    , Task.perform GotZoneTime <| Task.map2 Tuple.pair Time.here Time.now
     )
 
 
@@ -62,15 +91,22 @@ type Msg
     = OnUrlChange Url
     | OnUrlRequest UrlRequest
     | GotZoneTime ( Zone, Posix )
-    | ClickedDay Int Day
+    | ClickedDay Day
     | EditMsg Edit.Msg
     | ClickedCancel
-    | ClickedValidate Int (Result String Kind)
+    | ClickedValidate Day (Result String (List Range))
     | ClickedExport
+    | GotPlannings (Result Error (List Planning))
+    | DidPostDay (Result Error ())
+    | DidPutPlanning (Result Error ())
 
 
 update : Msg -> Model -> ( Model, Cmd Msg )
 update msg model =
+    let
+        _ =
+            Debug.log "msg" msg
+    in
     case msg of
         OnUrlChange _ ->
             ( model, Cmd.none )
@@ -84,13 +120,18 @@ update msg model =
                 , zone = Just here
                 , days = computeDays here now
               }
-            , Cmd.none
+            , Api.getPlannings model.host (getFirstDayOfMonth here now) (getLastDayOfMonth here now) GotPlannings
             )
 
-        ClickedDay index day ->
+        ClickedDay day ->
             case ( model.zone, model.time ) of
                 ( Just zone, Just time ) ->
-                    ( { model | state = Edit index <| Edit.init zone time day.kind }, Cmd.none )
+                    case day.planning of
+                        Just planning ->
+                            ( { model | state = Edit day <| Edit.init zone time planning.ranges }, Cmd.none )
+
+                        Nothing ->
+                            ( { model | state = Edit day <| Edit.init zone time [] }, Cmd.none )
 
                 _ ->
                     ( model, Cmd.none )
@@ -110,22 +151,16 @@ update msg model =
         ClickedCancel ->
             ( { model | state = Initial }, Cmd.none )
 
-        ClickedValidate index result ->
-            case result of
-                Err _ ->
-                    ( model, Cmd.none )
+        ClickedValidate _ (Err _) ->
+            ( model, Cmd.none )
 
-                Ok kind ->
-                    let
-                        days =
-                            case List.Extra.getAt index model.days of
-                                Just day ->
-                                    List.Extra.setAt index { day | kind = kind } model.days
+        ClickedValidate day (Ok ranges) ->
+            case day.planning of
+                Just planning ->
+                    ( { model | state = Initial }, Api.putPlanning model.host { planning | ranges = ranges } DidPutPlanning )
 
-                                Nothing ->
-                                    model.days
-                    in
-                    ( { model | state = Initial, days = days }, Cmd.none )
+                Nothing ->
+                    ( { model | state = Initial }, Api.postData model.host { date = day.date, ranges = ranges } DidPostDay )
 
         ClickedExport ->
             case ( model.zone, model.time ) of
@@ -135,23 +170,71 @@ update msg model =
                 _ ->
                     ( model, Cmd.none )
 
+        GotPlannings (Ok plannings) ->
+            ( { model | days = bar plannings model.days }, Cmd.none )
+
+        GotPlannings (Err _) ->
+            ( model, Cmd.none )
+
+        DidPostDay (Ok ()) ->
+            case ( model.zone, model.time ) of
+                ( Just zone, Just time ) ->
+                    ( model, Api.getPlannings model.host (getFirstDayOfMonth zone time) (getLastDayOfMonth zone time) GotPlannings )
+
+                _ ->
+                    ( model, Cmd.none )
+
+        DidPostDay (Err _) ->
+            ( model, Cmd.none )
+
+        DidPutPlanning (Ok ()) ->
+            case ( model.zone, model.time ) of
+                ( Just zone, Just time ) ->
+                    ( model, Api.getPlannings model.host (getFirstDayOfMonth zone time) (getLastDayOfMonth zone time) GotPlannings )
+
+                _ ->
+                    ( model, Cmd.none )
+
+        DidPutPlanning (Err _) ->
+            ( model, Cmd.none )
+
+
+computeDays : Zone -> Posix -> List Day
+computeDays zone current =
+    getCurrentMonthDates zone current
+        |> List.map (\posix -> { date = posix, planning = Nothing })
+
+
+bar : List Planning -> List Day -> List Day
+bar plannings days =
+    let
+        dict =
+            plannings
+                |> List.map (\planning -> ( Time.posixToMillis planning.date, planning ))
+                |> Dict.fromList
+    in
+    List.map
+        (\day ->
+            case Dict.get (Time.posixToMillis day.date) dict of
+                Just planning ->
+                    { day | planning = Just planning }
+
+                Nothing ->
+                    day
+        )
+        days
+
 
 encode : Zone -> Posix -> Model -> Value
 encode zone posix model =
     E.object
         [ ( "name", E.string model.name )
         , ( "month", E.string <| monthYearString zone posix )
-        , ( "days", E.list (Day.encodePDF zone) model.days )
+        , ( "days", E.list (encodePDF zone) model.days )
         ]
 
 
 port export : Value -> Cmd msg
-
-
-computeDays : Zone -> Posix -> List Day
-computeDays zone current =
-    getCurrentMonthDates zone current
-        |> List.map (\d -> { id = 0, date = d, kind = Day.Kind.Working [] })
 
 
 
@@ -191,6 +274,7 @@ body model =
             _ ->
                 text model.name
         ]
+    , legend Code.selectList
     , div
         [ css [ Css.padding (rem 1), Css.alignSelf Css.flexEnd ] ]
         [ button [ onClick ClickedExport ] [ text "Exporter" ] ]
@@ -204,14 +288,13 @@ body model =
         ( Just zone, Just time ) ->
             div []
                 (model.days
-                    |> List.indexedMap (\index day -> ( index, day ))
                     |> List.map
-                        (\( index, day ) ->
+                        (\day ->
                             if Time.Helpers.isWeekend zone day.date then
                                 weekendView zone time day.date
 
                             else
-                                dayView zone time ( index, day )
+                                dayView zone time day
                         )
                 )
 
@@ -221,8 +304,8 @@ body model =
         Initial ->
             text ""
 
-        Edit index subModel ->
-            modal [] [] [ Edit.view EditMsg ClickedCancel (ClickedValidate index) subModel ]
+        Edit day subModel ->
+            modal [] [] [ Edit.view EditMsg ClickedCancel (ClickedValidate day) subModel ]
     ]
 
 
@@ -343,15 +426,15 @@ headers zone posix =
         ]
 
 
-dayView : Zone -> Posix -> ( Int, Day ) -> Html Msg
-dayView zone today ( index, day ) =
+dayView : Zone -> Posix -> Day -> Html Msg
+dayView zone today day =
     let
         t : List Posix
         t =
             ticks zone today
     in
     div
-        [ onClick (ClickedDay index day)
+        [ onClick (ClickedDay day)
         , css
             [ Css.displayFlex
             , Css.hover [ Css.backgroundColor Tailwind.gray200 ]
@@ -366,11 +449,11 @@ dayView zone today ( index, day ) =
                 , Css.position Css.relative
                 ]
             ]
-            ((case day.kind of
-                Day.Kind.Working ranges ->
-                    List.map (rangeView zone today) ranges
+            ((case day.planning of
+                Just planning ->
+                    List.map (rangeView zone today) planning.ranges
 
-                _ ->
+                Nothing ->
                     []
              )
                 ++ List.map (slotView zone <| List.length t) t
@@ -384,13 +467,22 @@ dayView zone today ( index, day ) =
                 , Css.alignItems Css.center
                 ]
             ]
-            [ if Day.workingHours day == 0 then
-                text "-"
+            [ case day.planning of
+                Just planning ->
+                    let
+                        sum =
+                            Range.workingHours planning.ranges
+                    in
+                    if sum == 0 then
+                        text "-"
 
-              else
-                Day.workingHours day
-                    |> Time.Helpers.formatDuration
-                    |> text
+                    else
+                        sum
+                            |> Time.Helpers.formatDuration
+                            |> text
+
+                Nothing ->
+                    text "-"
             ]
         , div
             [ css
@@ -401,13 +493,22 @@ dayView zone today ( index, day ) =
                 , Css.alignItems Css.center
                 ]
             ]
-            [ if Day.aapHours day == 0 then
-                text "-"
+            [ case day.planning of
+                Just planning ->
+                    let
+                        sum =
+                            Range.aapHours planning.ranges
+                    in
+                    if sum == 0 then
+                        text "-"
 
-              else
-                Day.aapHours day
-                    |> Time.Helpers.formatDuration
-                    |> text
+                    else
+                        sum
+                            |> Time.Helpers.formatDuration
+                            |> text
+
+                Nothing ->
+                    text "-"
             ]
         ]
 
@@ -417,14 +518,23 @@ dateView zone today date =
     div
         [ css
             [ Css.width (px 130)
-            , Css.padding (rem 1)
+            , Css.margin (rem 0.5)
+            , Css.padding (rem 0.5)
             , Css.color
                 (if isSameDay zone today date then
-                    Css.hex "4285F4"
+                    Css.hex "FFFFFF"
 
                  else
                     Css.hex "000000"
                 )
+            , Css.backgroundColor
+                (if isSameDay zone today date then
+                    Css.hex "4285F4"
+
+                 else
+                    Css.rgba 0 0 0 0
+                )
+            , Css.borderRadius (rem 0.2)
             ]
         ]
         [ text <| weekdayDayMonthString zone date
@@ -555,11 +665,57 @@ modal modalAttributes attributes elements =
         ]
 
 
+legend : List Code -> Html msg
+legend codes =
+    div
+        [ css
+            [ Css.padding (rem 1)
+            , Css.displayFlex
+            , Css.flexDirection Css.column
+            , Css.alignSelf Css.flexStart
+            ]
+        ]
+        [ div [ css [ Css.padding (rem 0.4) ] ] [ text "Légende" ]
+        , div
+            [ css
+                [ Css.displayFlex
+                , Css.fontSize (px 12)
+                , Css.overflow Css.auto
+                , Css.flexDirection Css.column
+                ]
+            ]
+            (List.map foo codes)
+        ]
+
+
+foo : Code -> Html msg
+foo code =
+    div
+        [ css
+            [ Css.margin (rem 0.1)
+            , Css.borderRadius (rem 0.1)
+            , Css.displayFlex
+            , Css.alignItems Css.baseline
+            ]
+        ]
+        [ div
+            [ css
+                [ Css.color <| Code.color code
+                , Css.backgroundColor <| Code.backgroundColor code
+                , Css.padding (rem 0.2)
+                , Css.width (px 24)
+                ]
+            ]
+            [ text <| Code.toString code ]
+        , div [ css [ Css.marginLeft (rem 0.4) ] ] [ text <| Code.description code ]
+        ]
+
+
 
 -- main
 
 
-main : Program () Model Msg
+main : Program String Model Msg
 main =
     Browser.application
         { init = init
