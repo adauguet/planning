@@ -46,20 +46,16 @@ function drawDay(doc, top, i, day) {
   let dateColumnWidth = 40;
   doc.line(x + dateColumnWidth, y, x + dateColumnWidth, y + dayHeight);
 
-  if (day.kind === "default") {
-    day.ranges.forEach((range) => {
-      drawRange(
-        doc,
-        range,
-        x + dateColumnWidth,
-        y,
-        dayWidth - dateColumnWidth,
-        height
-      );
-    });
-  } else {
-    console.log(day.kind);
-  }
+  day.ranges.forEach((range) => {
+    drawRange(
+      doc,
+      range,
+      x + dateColumnWidth,
+      y,
+      dayWidth - dateColumnWidth,
+      height
+    );
+  });
 }
 
 function drawRange(
@@ -85,7 +81,6 @@ function drawRange(
   doc.setFontSize(9);
   doc.text(range.code, x + 1, y + 3);
 
-  console.log(range);
   doc.setFontSize(5);
   doc.text(
     timeToString(range.begin) + " - " + timeToString(range.end),

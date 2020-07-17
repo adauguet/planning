@@ -3,7 +3,10 @@ module Endpoint exposing
     , day
     , days
     , daysFromTo
+    , delete
+    , forgotPassword
     , get
+    , login
     , post
     , put
     )
@@ -26,6 +29,20 @@ url : String -> List String -> List QueryParameter -> Endpoint
 url host paths queryParams =
     crossOrigin host paths queryParams
         |> Endpoint
+
+
+
+-- login
+
+
+login : String -> Endpoint
+login host =
+    url host [ "login" ] []
+
+
+forgotPassword : String -> Endpoint
+forgotPassword host =
+    url host [ "users", "forgot" ] []
 
 
 
@@ -98,6 +115,23 @@ put config =
         , headers = []
         , url = unwrap config.url
         , body = config.body
+        , expect = config.expect
+        , timeout = Nothing
+        , tracker = Nothing
+        }
+
+
+delete :
+    { url : Endpoint
+    , expect : Http.Expect a
+    }
+    -> Cmd a
+delete config =
+    Http.riskyRequest
+        { method = "delete"
+        , headers = []
+        , url = unwrap config.url
+        , body = Http.emptyBody
         , expect = config.expect
         , timeout = Nothing
         , tracker = Nothing

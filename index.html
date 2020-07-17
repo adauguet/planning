@@ -6,17 +6,25 @@
         <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/1.5.3/jspdf.debug.js" integrity="sha384-NaWTHo/8YCBYJ59830LTz/P4aQZK1sS0SneOgAvhsIl3zBu8r9RevNg5lHCHAuQ/" crossorigin="anonymous"></script>
         <script src="/pdf.js"></script>
         <script src="/conf.js"></script>
+        <script type="text/javascript" src="/bower_components/crypto-js/crypto-js.js"></script>
+        <link href="https://use.fontawesome.com/releases/v5.5.0/css/all.css" rel="stylesheet"/>
     </head>
     <body>
         <script src="elm.min.js"></script>
         <div id="elm"></div>
-        <script>
+        <script type="text/javascript">
+            function hash(password, salt) {
+                return CryptoJS.PBKDF2(password, salt, { keySize: 128 / 16, iterations: 4096 }).toString();
+            }
             var app = Elm.Main.init({
                 node: document.getElementById('elm'),
                 flags: conf.host,
             });
             app.ports.export.subscribe(function(object) {
                 generate(object);
+            });
+            app.ports.hash_.subscribe(function(cred) {
+                app.ports.hashed.send(hash(cred.password, cred.salt));
             });
         </script>
     </body>
