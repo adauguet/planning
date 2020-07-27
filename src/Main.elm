@@ -5,7 +5,6 @@ import Browser exposing (Document, UrlRequest)
 import Browser.Navigation exposing (Key)
 import Home
 import Html
-import Html.Styled exposing (toUnstyled)
 import Http exposing (Error)
 import Login
 import Route exposing (Route)
@@ -145,10 +144,7 @@ view model =
 
         Home subModel ->
             { title = "Home"
-            , body =
-                Home.view subModel
-                    |> List.map (Html.Styled.map GotHomeMsg)
-                    |> List.map toUnstyled
+            , body = [ Home.view subModel |> Html.map GotHomeMsg ]
             }
 
 

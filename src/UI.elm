@@ -35,7 +35,7 @@ import Element.Border as Border
 import Element.Font as Font
 import Html exposing (i)
 import Html.Attributes exposing (class)
-import TailwindElmUI
+import Tailwind
 
 
 shadow : Attribute msg
@@ -161,7 +161,7 @@ fontAwesomeIcon description =
 
 inputLabelAttributes : List (Attribute msg)
 inputLabelAttributes =
-    [ Font.color TailwindElmUI.gray700
+    [ Font.color Tailwind.gray700
     , Font.size 12
     ]
 
@@ -170,7 +170,7 @@ plainButtonAttributes : List (Attribute msg)
 plainButtonAttributes =
     [ paddingXY 16 12
     , Border.rounded 4
-    , Background.color TailwindElmUI.blue700
+    , Background.color Tailwind.blue700
     , Font.color <| rgb255 255 255 255
     , shadowLg
     , Font.semiBold
@@ -179,7 +179,7 @@ plainButtonAttributes =
 
 textButtonAttributes : List (Attribute msg)
 textButtonAttributes =
-    [ Font.color TailwindElmUI.blue700
+    [ Font.color Tailwind.blue700
     , Font.semiBold
     ]
 
@@ -197,6 +197,6 @@ windowAttributes =
     , width (fill |> maximum 400)
     , padding 36
     , Border.width 1
-    , Border.color TailwindElmUI.gray400
+    , Border.color Tailwind.gray400
     , Border.rounded 10
     ]

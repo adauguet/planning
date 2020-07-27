@@ -1,6 +1,7 @@
-module Code exposing (Code(..), backgroundColor, color, comment, decoder, description, isPaid, selectList, toString)
+module Code exposing (Code(..), backgroundColor, backgroundColorE, color, colorE, comment, decoder, description, isPaid, selectList, toString)
 
 import Css exposing (Color)
+import Element exposing (rgb255)
 import Json.Decode as D exposing (Decoder)
 
 
@@ -132,6 +133,31 @@ backgroundColor code =
             Css.hex "63DA38"
 
 
+backgroundColorE : Code -> Element.Color
+backgroundColorE code =
+    case code of
+        T ->
+            rgb255 66 133 244
+
+        TT ->
+            rgb255 66 133 244
+
+        HS ->
+            rgb255 66 133 244
+
+        AAP ->
+            rgb255 225 225 225
+
+        AT ->
+            rgb255 225 225 225
+
+        NT ->
+            rgb255 225 225 225
+
+        _ ->
+            rgb255 99 218 56
+
+
 color : Code -> Color
 color code =
     case code of
@@ -146,6 +172,22 @@ color code =
 
         _ ->
             Css.hex "3C4043"
+
+
+colorE : Code -> Element.Color
+colorE code =
+    case code of
+        T ->
+            rgb255 255 255 255
+
+        TT ->
+            rgb255 255 255 255
+
+        HS ->
+            rgb255 255 255 255
+
+        _ ->
+            rgb255 60 64 67
 
 
 isPaid : Code -> Bool

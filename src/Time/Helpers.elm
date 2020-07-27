@@ -3,6 +3,7 @@ module Time.Helpers exposing
     , formatDuration
     , hourMinuteString
     , isOnTheDot
+    , isSameDay
     , isWeekend
     , millisToHours
     , posixFromHoursMinutes
@@ -134,3 +135,10 @@ formatDuration millis =
 diff : Posix -> Posix -> Int
 diff from to =
     posixToMillis to - posixToMillis from
+
+
+isSameDay : Zone -> Posix -> Posix -> Bool
+isSameDay zone posix1 posix2 =
+    (Time.toYear zone posix1 == Time.toYear zone posix2)
+        && (Time.toMonth zone posix1 == Time.toMonth zone posix2)
+        && (Time.toDay zone posix1 == Time.toDay zone posix2)

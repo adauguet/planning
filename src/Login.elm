@@ -27,7 +27,7 @@ import Http
 import Json.Decode as D exposing (Error)
 import Route exposing (pushUrl)
 import Session exposing (Session(..))
-import TailwindElmUI
+import Tailwind
 import UI
 import User exposing (User)
 
@@ -137,7 +137,7 @@ update msg model session =
 
 view : Model -> Html Msg
 view model =
-    layout [ Font.size 14, Font.color TailwindElmUI.gray800 ]
+    layout [ Font.size 14, Font.color Tailwind.gray800 ]
         (case model.page of
             Login m ->
                 loginView m
@@ -158,7 +158,7 @@ loginView model =
                 none
 
             Error message ->
-                el [ Font.color TailwindElmUI.red600, Font.size 13 ] <| text message
+                el [ Font.color Tailwind.red600, Font.size 13 ] <| text message
         , Input.email []
             { onChange = InputEmail
             , text = model.email

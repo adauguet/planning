@@ -26,201 +26,147 @@ module Tailwind exposing
     , red700
     , red800
     , red900
-    , rounded
-    , roundedLarge
-    , roundedSmall
-    , shadow
-    , shadow2Xl
-    , shadowInner
-    , shadowLg
-    , shadowMd
-    , shadowXl
     , white
     )
 
-import Css exposing (Color, Style, borderRadius, hex, inset, px, rem, rgb, rgba, zero)
-
-
-shadow : Style
-shadow =
-    Css.property "box-shadow" "0 1px 3px 0 rgba(0, 0, 0, 0.1), 0 1px 2px 0 rgba(0, 0, 0, 0.06)"
-
-
-shadowMd : Style
-shadowMd =
-    Css.property "box-shadow" "0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06)"
-
-
-shadowLg : Style
-shadowLg =
-    Css.property "box-shadow" "0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05)"
-
-
-shadowXl : Style
-shadowXl =
-    Css.property "box-shadow" "0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04)"
-
-
-shadow2Xl : Style
-shadow2Xl =
-    Css.boxShadow5 zero (px 25) (px 50) (px -12) (rgba 0 0 0 0.25)
-
-
-shadowInner : Style
-shadowInner =
-    Css.boxShadow6 inset zero (px 2) (px 4) zero (rgba 0 0 0 0.06)
+import Element exposing (Color, rgb255)
 
 
 white : Color
 white =
-    rgb 255 255 255
+    rgb255 255 255 255
 
 
 blue100 : Color
 blue100 =
-    hex "#EBF8FF"
+    rgb255 235 248 255
 
 
 blue200 : Color
 blue200 =
-    hex "#BEE3F8"
+    rgb255 190 227 248
 
 
 blue300 : Color
 blue300 =
-    hex "#90CDF4"
+    rgb255 144 205 244
 
 
 blue400 : Color
 blue400 =
-    hex "#63B3ED"
+    rgb255 99 179 237
 
 
 blue500 : Color
 blue500 =
-    hex "#4299E1"
+    rgb255 66 153 225
 
 
 blue600 : Color
 blue600 =
-    hex "#3182CE"
+    rgb255 49 130 206
 
 
 blue700 : Color
 blue700 =
-    hex "#2B6CB0"
+    rgb255 43 108 176
 
 
 blue800 : Color
 blue800 =
-    hex "#2C5282"
+    rgb255 44 82 130
 
 
 blue900 : Color
 blue900 =
-    hex "#2A4365"
+    rgb255 42 67 101
 
 
 gray100 : Color
 gray100 =
-    hex "#F7FAFC"
+    rgb255 247 250 252
 
 
 gray200 : Color
 gray200 =
-    hex "#EDF2F7"
+    rgb255 237 242 247
 
 
 gray300 : Color
 gray300 =
-    hex "#E2E8F0"
+    rgb255 226 232 240
 
 
 gray400 : Color
 gray400 =
-    hex "#CBD5E0"
+    rgb255 203 213 224
 
 
 gray500 : Color
 gray500 =
-    hex "#A0AEC0"
+    rgb255 160 174 192
 
 
 gray600 : Color
 gray600 =
-    hex "#718096"
+    rgb255 113 128 150
 
 
 gray700 : Color
 gray700 =
-    hex "#4A5568"
+    rgb255 74 85 104
 
 
 gray800 : Color
 gray800 =
-    hex "#2D3748"
+    rgb255 45 55 72
 
 
 gray900 : Color
 gray900 =
-    hex "#1A202C"
-
-
-roundedSmall : Style
-roundedSmall =
-    borderRadius (rem 0.125)
-
-
-rounded : Style
-rounded =
-    borderRadius (rem 0.25)
-
-
-roundedLarge : Style
-roundedLarge =
-    borderRadius (rem 0.5)
+    rgb255 26 32 44
 
 
 red100 : Color
 red100 =
-    hex "#FFF5F5"
+    rgb255 255 245 245
 
 
 red200 : Color
 red200 =
-    hex "#FED7D7"
+    rgb255 254 215 215
 
 
 red300 : Color
 red300 =
-    hex "#FEB2B2"
+    rgb255 254 178 178
 
 
 red400 : Color
 red400 =
-    hex "#FC8181"
+    rgb255 252 129 129
 
 
 red500 : Color
 red500 =
-    hex "#F56565"
+    rgb255 245 101 101
 
 
 red600 : Color
 red600 =
-    hex "#E53E3E"
+    rgb255 229 62 62
 
 
 red700 : Color
 red700 =
-    hex "#C53030"
+    rgb255 197 48 48
 
 
 red800 : Color
 red800 =
-    hex "#9B2C2C"
+    rgb255 155 44 44
 
 
 red900 : Color
 red900 =
-    hex "#742A2A"
+    rgb255 116 42 42

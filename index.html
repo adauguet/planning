@@ -26,6 +26,12 @@
             app.ports.hash_.subscribe(function(cred) {
                 app.ports.hashed.send(hash(cred.password, cred.salt));
             });
+            app.ports.scrollTop_.subscribe(function(id) {
+                setTimeout(() => {
+                    // document.getElementById(id).childNodes[0].scrollTop = 50;
+                    document.getElementById(id).scrollIntoView();
+                }, 1);
+            })
         </script>
     </body>
 </html>
