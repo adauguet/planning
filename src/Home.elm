@@ -5,12 +5,14 @@ import Browser.Navigation exposing (Key)
 import Code exposing (Code)
 import Day exposing (Day)
 import Derberos.Date.Calendar exposing (getCurrentMonthDates, getFirstDayOfMonth, getLastDayOfMonth)
+import Derberos.Date.Delta exposing (addMonths)
 import Dict
 import Edit
 import Element
     exposing
         ( Attribute
         , Element
+        , alignRight
         , centerX
         , centerY
         , column
@@ -51,18 +53,18 @@ import Range exposing (Range)
 import Route
 import Session exposing (Session)
 import Tailwind
-import Task
 import Time exposing (Posix, Zone, millisToPosix, posixToMillis, toWeekday)
 import Time.FR exposing (monthYearString, weekdayDayMonthString)
-import Time.Helpers exposing (diff, isSameDay, isWeekend, posixFromHoursMinutes)
+import Time.Helpers exposing (diff, isSameDay, isWeekend, monthToInt, posixFromHoursMinutes)
+import UI
 import User exposing (User)
 
 
 type alias Model =
     { key : Key
     , host : String
-    , zone : Maybe Zone
-    , time : Maybe Posix
+    , zone : Zone
+    , time : Posix
     , state : State
     , days : List Day
     , user : User
@@ -74,18 +76,23 @@ type State
     | Edit Day Edit.Model
 
 
-init : Key -> String -> User -> ( Model, Cmd Msg )
-init key host user =
+init : Key -> String -> Zone -> Posix -> User -> ( Model, Cmd Msg )
+init key host zone time user =
     ( { key = key
       , host = host
-      , zone = Nothing
-      , time = Nothing
+      , zone = zone
+      , time = time
       , state = Initial
-      , days = []
+      , days = computeDays zone time
       , user = user
       }
-    , Task.perform GotZoneTime <| Task.map2 Tuple.pair Time.here Time.now
+    , getPlannings host zone time
     )
+
+
+getPlannings : String -> Zone -> Posix -> Cmd Msg
+getPlannings host zone time =
+    Api.getPlannings host (getFirstDayOfMonth zone time) (getLastDayOfMonth zone time) GotPlannings
 
 
 
@@ -93,8 +100,7 @@ init key host user =
 
 
 type Msg
-    = GotZoneTime ( Zone, Posix )
-    | ClickedDay Day
+    = ClickedDay Day
     | EditMsg Edit.Msg
     | ClickedCancel
     | ClickedValidate Day (Result String (List Range))
@@ -104,38 +110,25 @@ type Msg
     | DidPutPlanning (Result Error ())
     | ClickedLogout
     | DidLogout (Result Error ())
+    | ClickedPreviousMonth
+    | ClickedNextMonth
 
 
 update : Msg -> Model -> Session -> ( Model, Session, Cmd Msg )
 update msg model session =
     case msg of
-        GotZoneTime ( here, now ) ->
-            ( { model
-                | time = Just now
-                , zone = Just here
-                , days = computeDays here now
-              }
-            , session
-            , Api.getPlannings model.host (getFirstDayOfMonth here now) (getLastDayOfMonth here now) GotPlannings
-            )
-
         ClickedDay day ->
-            case ( model.zone, model.time ) of
-                ( Just zone, Just time ) ->
-                    case toWeekday zone day.date of
-                        Time.Sun ->
-                            ( model, session, Cmd.none )
-
-                        _ ->
-                            case day.planning of
-                                Just planning ->
-                                    ( { model | state = Edit day <| Edit.init zone time planning.ranges }, session, Cmd.none )
-
-                                Nothing ->
-                                    ( { model | state = Edit day <| Edit.init zone time [] }, session, Cmd.none )
+            case toWeekday model.zone day.date of
+                Time.Sun ->
+                    ( model, session, Cmd.none )
 
                 _ ->
-                    ( model, session, Cmd.none )
+                    case day.planning of
+                        Just planning ->
+                            ( { model | state = Edit day <| Edit.init model.zone day.date planning.ranges }, session, Cmd.none )
+
+                        Nothing ->
+                            ( { model | state = Edit day <| Edit.init model.zone day.date [] }, session, Cmd.none )
 
         EditMsg subMsg ->
             case model.state of
@@ -164,12 +157,7 @@ update msg model session =
                     ( { model | state = Initial }, session, Api.postData model.host { date = day.date, ranges = ranges } DidPostDay )
 
         ClickedExport ->
-            case ( model.zone, model.time ) of
-                ( Just zone, Just time ) ->
-                    ( model, session, export <| encode zone time model )
-
-                _ ->
-                    ( model, session, Cmd.none )
+            ( model, session, export <| encode model )
 
         GotPlannings (Ok plannings) ->
             -- let
@@ -182,23 +170,13 @@ update msg model session =
             ( model, session, Cmd.none )
 
         DidPostDay (Ok ()) ->
-            case ( model.zone, model.time ) of
-                ( Just zone, Just time ) ->
-                    ( model, session, Api.getPlannings model.host (getFirstDayOfMonth zone time) (getLastDayOfMonth zone time) GotPlannings )
-
-                _ ->
-                    ( model, session, Cmd.none )
+            ( model, session, Api.getPlannings model.host (getFirstDayOfMonth model.zone model.time) (getLastDayOfMonth model.zone model.time) GotPlannings )
 
         DidPostDay (Err _) ->
             ( model, session, Cmd.none )
 
         DidPutPlanning (Ok ()) ->
-            case ( model.zone, model.time ) of
-                ( Just zone, Just time ) ->
-                    ( model, session, Api.getPlannings model.host (getFirstDayOfMonth zone time) (getLastDayOfMonth zone time) GotPlannings )
-
-                _ ->
-                    ( model, session, Cmd.none )
+            ( model, session, Api.getPlannings model.host (getFirstDayOfMonth model.zone model.time) (getLastDayOfMonth model.zone model.time) GotPlannings )
 
         DidPutPlanning (Err _) ->
             ( model, session, Cmd.none )
@@ -211,6 +189,26 @@ update msg model session =
 
         DidLogout (Err _) ->
             ( model, session, Cmd.none )
+
+        ClickedPreviousMonth ->
+            let
+                newTime =
+                    addMonths -1 model.zone model.time
+            in
+            ( { model | time = newTime, days = computeDays model.zone newTime }
+            , session
+            , getPlannings model.host model.zone newTime
+            )
+
+        ClickedNextMonth ->
+            let
+                newTime =
+                    addMonths 1 model.zone model.time
+            in
+            ( { model | time = newTime, days = computeDays model.zone newTime }
+            , session
+            , getPlannings model.host model.zone newTime
+            )
 
 
 computeDays : Zone -> Posix -> List Day
@@ -239,13 +237,25 @@ applyPlannings plannings days =
         days
 
 
-encode : Zone -> Posix -> Model -> Value
-encode zone posix model =
+encode : Model -> Value
+encode model =
     E.object
         [ ( "name", E.string <| User.fullName model.user )
-        , ( "month", E.string <| monthYearString zone posix )
-        , ( "days", E.list (Day.encodePDF zone) model.days )
+        , ( "month", E.string <| monthYearString model.zone model.time )
+        , ( "days", E.list (Day.encodePDF model.zone) model.days )
+        , ( "fileName", E.string <| fileName model.user model.zone model.time )
         ]
+
+
+fileName : User -> Zone -> Posix -> String
+fileName user zone posix =
+    [ user.lastName
+    , user.firstName
+    , "-"
+    , String.fromInt <| Time.toYear zone posix
+    , String.fromInt <| monthToInt <| Time.toMonth zone posix
+    ]
+        |> String.join ""
 
 
 port export : Value -> Cmd msg
@@ -270,42 +280,51 @@ view model =
                         el [ centerX, centerY, Background.color Tailwind.white, padding 16 ] <|
                             Edit.view EditMsg ClickedCancel (ClickedValidate day) subModel
         ]
-        (column [ width fill ]
-            [ case ( model.zone, model.time ) of
-                ( Just zone, Just posix ) ->
-                    text <| User.fullName model.user ++ " - " ++ monthYearString zone posix
-
-                _ ->
-                    text <| User.fullName model.user
-            , Input.button
-                [ paddingXY 10 5
-                , Border.rounded 3
-                , Border.width 1
-                , Font.size 13
-                ]
-                { onPress = Just ClickedLogout, label = text "Déconnexion" }
-            , Input.button
-                [ paddingXY 10 5
-                , Border.rounded 3
-                , Border.width 1
-                , Font.size 13
-                ]
-                { onPress = Just ClickedExport, label = text "Exporter" }
-            , legend Code.selectList
-            , case ( model.zone, model.time ) of
-                ( Just here, Just today ) ->
-                    let
-                        dayViews =
-                            List.map (dayView here today) model.days
-                    in
-                    el
-                        [ width (fill |> minimum 500)
+        (column [ width fill, spacing 16 ]
+            [ column [ padding 8, spacing 8, width fill ]
+                [ row [ width fill ]
+                    [ text <| User.fullName model.user
+                    , Input.button
+                        [ paddingXY 10 5
+                        , Border.rounded 3
+                        , Border.width 1
+                        , Font.size 13
+                        , alignRight
                         ]
-                    <|
-                        column [ width fill ] (headers here today :: dayViews)
-
-                _ ->
-                    none
+                        { onPress = Just ClickedLogout, label = text "Déconnexion" }
+                    ]
+                , row [ spacing 8 ]
+                    [ Input.button
+                        [ paddingXY 10 5
+                        , Border.rounded 3
+                        , mouseOver [ Background.color Tailwind.gray200 ]
+                        , Font.size 13
+                        ]
+                        { onPress = Just ClickedPreviousMonth, label = UI.fontAwesomeIcon "fas fa-chevron-left" }
+                    , el [ width <| px 100 ] <| el [ centerX, Font.size 14 ] <| text <| monthYearString model.zone model.time
+                    , Input.button
+                        [ paddingXY 10 5
+                        , Border.rounded 3
+                        , mouseOver [ Background.color Tailwind.gray200 ]
+                        , Font.size 13
+                        ]
+                        { onPress = Just ClickedNextMonth, label = UI.fontAwesomeIcon "fas fa-chevron-right" }
+                    ]
+                , Input.button
+                    [ paddingXY 10 5
+                    , Border.rounded 3
+                    , Border.width 1
+                    , Font.size 13
+                    ]
+                    { onPress = Just ClickedExport, label = text "Exporter" }
+                ]
+            , let
+                dayViews =
+                    List.map (dayView model.zone model.time) model.days
+              in
+              column [ width fill ] (headers model.zone model.time :: dayViews)
+                |> el [ width (fill |> minimum 500) ]
+            , legend Code.selectList
             ]
         )
 
@@ -342,10 +361,12 @@ codeView code =
             [ Font.color <| Code.colorE code
             , Background.color <| Code.backgroundColorE code
             , padding 2
-            , width <| px 24
+            , width <| px 32
             , height fill
+            , Font.size 12
+            , padding 3
             ]
-            none
+            (el [ centerY ] <| text <| Code.toString code)
         , el [ Font.size 12, padding 4 ] <| text <| Code.description code
         ]
 
@@ -414,7 +435,7 @@ dayView zone today day =
                 ([ width fill
                  , height fill
                  ]
-                    ++ rangesView zone today day
+                    ++ rangesView zone day
                 )
             <|
                 List.map (slotView zone) t
@@ -439,12 +460,12 @@ dayView zone today day =
         ]
 
 
-rangesView : Zone -> Posix -> Day -> List (Attribute msg)
-rangesView zone posix day =
+rangesView : Zone -> Day -> List (Attribute msg)
+rangesView zone day =
     case day.planning of
         Just planning ->
             planning.ranges
-                |> List.map (rangeView zone posix)
+                |> List.map (rangeView zone day.date)
                 |> List.map inFront
 
         Nothing ->
@@ -508,22 +529,27 @@ rangeView zone posix range =
     row [ width fill, height fill ]
         [ el [ width <| fillPortion <| diff (from zone posix) range.begin ] none
         , el
-            [ paddingEach { top = 3, right = 4, bottom = 3, left = 0 }
-            , width <| fillPortion <| Range.duration range
+            [ width <| fillPortion <| Range.duration range
             , height fill
             ]
-            (column
-                [ paddingXY 5 3
-                , Background.color <| Code.backgroundColorE range.code
-                , Font.color <| Code.colorE range.code
+          <|
+            el
+                [ paddingEach { top = 3, right = 3, bottom = 3, left = 0 }
                 , width fill
                 , height fill
-                , spacing 2
                 ]
-                [ el [ Font.size 15 ] <| text <| Code.toString range.code
-                , el [ Font.size 11 ] <| text <| Time.Helpers.hourMinuteString zone range.begin ++ " - " ++ Time.Helpers.hourMinuteString zone range.end
-                ]
-            )
+                (column
+                    [ paddingXY 5 3
+                    , Background.color <| Code.backgroundColorE range.code
+                    , Font.color <| Code.colorE range.code
+                    , width fill
+                    , height fill
+                    , spacing 2
+                    ]
+                    [ el [ Font.size 15 ] <| text <| Code.toString range.code
+                    , el [ Font.size 11 ] <| text <| Time.Helpers.hourMinuteString zone range.begin ++ " - " ++ Time.Helpers.hourMinuteString zone range.end
+                    ]
+                )
         , el
             [ width <| fillPortion <| diff range.end (to zone posix) ]
             none

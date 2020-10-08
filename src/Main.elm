@@ -9,6 +9,8 @@ import Http exposing (Error)
 import Login
 import Route exposing (Route)
 import Session exposing (Session(..))
+import Task
+import Time exposing (Posix, Zone)
 import Url exposing (Url)
 import User exposing (User)
 
@@ -20,6 +22,8 @@ import User exposing (User)
 type alias Model =
     { key : Key
     , host : String
+    , time : Maybe Posix
+    , zone : Maybe Zone
     , page : Page
     , session : Session
     }
@@ -35,10 +39,15 @@ init : String -> Url -> Key -> ( Model, Cmd Msg )
 init host url key =
     ( { key = key
       , host = host
+      , time = Nothing
+      , zone = Nothing
       , page = Redirect
       , session = LoggedOut
       }
-    , Api.connect host <| DidConnect <| Route.fromUrl url
+    , Cmd.batch
+        [ Api.connect host <| DidConnect <| Route.fromUrl url
+        , Task.perform GotZoneTime <| Task.map2 Tuple.pair Time.here Time.now
+        ]
     )
 
 
@@ -52,11 +61,15 @@ type Msg
     | GotHomeMsg Home.Msg
     | UrlChanged Url
     | UrlRequested UrlRequest
+    | GotZoneTime ( Zone, Posix )
 
 
 update : Msg -> Model -> ( Model, Cmd Msg )
 update msg model =
     case ( model.page, msg ) of
+        ( _, GotZoneTime ( here, now ) ) ->
+            ( { model | time = Just now, zone = Just here }, Cmd.none )
+
         ( _, DidConnect route (Ok user) ) ->
             changeRouteTo route { model | session = LoggedIn user }
 
@@ -95,12 +108,16 @@ changeRouteTo route model =
                     ( { model | page = Redirect }, Route.pushUrl model.key Route.Home )
 
                 Route.Home ->
-                    Home.init model.key model.host user
-                        |> updateWith model Home GotHomeMsg
+                    case ( model.zone, model.time ) of
+                        ( Just zone, Just time ) ->
+                            Home.init model.key model.host zone time user
+                                |> updateWith model Home GotHomeMsg
+
+                        _ ->
+                            ( { model | page = Redirect }, Cmd.none )
 
                 Route.NotFound ->
-                    Home.init model.key model.host user
-                        |> updateWith model Home GotHomeMsg
+                    ( { model | page = Redirect }, Cmd.none )
 
         LoggedOut ->
             case route of

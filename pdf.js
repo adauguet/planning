@@ -20,7 +20,7 @@ function generate(object) {
   drawLegend(doc, 235, codes);
   drawSignatureRect(doc, 235);
 
-  doc.save("a4.pdf");
+  doc.save(object.fileName + ".pdf");
 }
 
 let documentWidth = 210;

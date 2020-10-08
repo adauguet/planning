@@ -6,6 +6,7 @@ module Time.Helpers exposing
     , isSameDay
     , isWeekend
     , millisToHours
+    , monthToInt
     , posixFromHoursMinutes
     )
 

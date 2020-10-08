@@ -7,31 +7,26 @@ import Element
         , Element
         , alignRight
         , below
-        , clipY
         , column
         , el
         , fill
-        , height
         , htmlAttribute
-        , maximum
         , mouseOver
-        , moveDown
         , padding
-        , paddingXY
+        , px
         , row
-        , scrollbarY
         , spacing
         , text
+        , width
         )
 import Element.Background as Background
-import Element.Border as Border
 import Element.Font as Font
 import Element.Input as Input
 import Html.Attributes
 import Json.Encode as E
 import List.Extra
 import Range exposing (Range)
-import Tailwind exposing (white)
+import Tailwind
 import Time exposing (Posix, Zone)
 import Time.Helpers exposing (posixFromHoursMinutes)
 import UI
@@ -205,11 +200,18 @@ view parentMsg clickedCancel clickedValidate model =
                 |> List.indexedMap (rangeView model)
                 |> List.map (Element.map parentMsg)
             )
-        , Input.button buttonAttributes { onPress = Just <| parentMsg ClickedAddRange, label = text "Ajouter une plage" }
+        , Input.button UI.textButtonAttributes
+            { onPress = Just <| parentMsg ClickedAddRange
+            , label =
+                row [ spacing 5 ]
+                    [ UI.fontAwesomeIcon "fas fa-plus"
+                    , text "Ajouter une plage"
+                    ]
+            }
         , el [] <| text model.errorMessage
         , row [ alignRight, spacing 4 ]
-            [ Input.button buttonAttributes { onPress = Just clickedCancel, label = text "Annuler" }
-            , Input.button buttonAttributes { onPress = Just <| clickedValidate <| validateRanges model.ranges, label = text "Valider" }
+            [ Input.button UI.smallOutlinedButtonAttributes { onPress = Just clickedCancel, label = text "Annuler" }
+            , Input.button UI.smallButtonAttributes { onPress = Just <| clickedValidate <| validateRanges model.ranges, label = text "Valider" }
             ]
         ]
 
@@ -218,21 +220,24 @@ rangeView : Model -> Int -> Range -> Element Msg
 rangeView model index range =
     row [ spacing 4 ]
         [ el (ifIndex model.state EditBegin index <| timeSelect model.zone model.posix range.begin (DidSelectBeginning index)) <|
-            Input.button inputAttributes
+            Input.button UI.inputAttributes
                 { onPress = Just <| ClickedBegin index
                 , label = text <| Time.Helpers.hourMinuteString model.zone range.begin
                 }
         , el (ifIndex model.state EditEnd index <| timeSelect model.zone model.posix range.end (DidSelectEnd index)) <|
-            Input.button inputAttributes
+            Input.button UI.inputAttributes
                 { onPress = Just <| ClickedEnd index
                 , label = text <| Time.Helpers.hourMinuteString model.zone range.end
                 }
         , el (ifIndex model.state EditCode index <| codeSelect index range.code) <|
-            Input.button inputAttributes
+            Input.button (UI.inputAttributes ++ [ width <| px 250 ])
                 { onPress = Just <| ClickedCode index
                 , label = text <| Code.description range.code
                 }
-        , Input.button buttonAttributes { onPress = Just <| ClickedDelete index, label = text "Supprimer" }
+        , Input.button UI.textButtonAttributes
+            { onPress = Just <| ClickedDelete index
+            , label = UI.fontAwesomeIcon "fas fa-trash-alt"
+            }
         ]
 
 
@@ -249,9 +254,37 @@ codeSelect : Int -> Code -> Element Msg
 codeSelect index code =
     let
         option c =
-            Input.option c (text <| Code.description c)
+            Input.optionWith c
+                (\state ->
+                    case state of
+                        Input.Idle ->
+                            el
+                                [ padding 8
+                                , mouseOver [ Background.color Tailwind.gray200 ]
+                                , width fill
+                                ]
+                                (text <| Code.description c)
+
+                        Input.Focused ->
+                            el
+                                [ padding 8
+                                , mouseOver [ Background.color Tailwind.gray200 ]
+                                , width fill
+                                ]
+                                (text <| Code.description c)
+
+                        Input.Selected ->
+                            el
+                                [ Font.heavy
+                                , htmlAttribute <| Html.Attributes.id "selected-option"
+                                , padding 8
+                                , mouseOver [ Background.color Tailwind.gray200 ]
+                                , width fill
+                                ]
+                                (text <| Code.description c)
+                )
     in
-    Input.radio radioAttributes
+    Input.radio UI.radioAttributes
         { onChange = DidSelectCode index
         , options = List.map option Code.selectList
         , selected = Just code
@@ -305,31 +338,9 @@ timeSelect zone today time onChange =
                 |> List.map (Tuple.mapFirst ((+) 7))
                 |> List.map (\( h, m ) -> posixFromHoursMinutes zone today h m)
     in
-    Input.radio radioAttributes
+    Input.radio UI.radioAttributes
         { onChange = onChange
         , options = List.map option ticks
         , selected = Just time
         , label = Input.labelHidden ""
         }
-
-
-radioAttributes : List (Attribute msg)
-radioAttributes =
-    [ paddingXY 0 8
-    , Background.color white
-    , UI.shadow
-    , height (fill |> maximum 200)
-    , clipY
-    , scrollbarY
-    , moveDown 4
-    ]
-
-
-buttonAttributes : List (Attribute msg)
-buttonAttributes =
-    [ padding 8, Border.width 1 ]
-
-
-inputAttributes : List (Attribute msg)
-inputAttributes =
-    [ padding 8, Background.color Tailwind.gray300 ]

@@ -1,12 +1,17 @@
 module UI exposing
     ( fontAwesomeIcon
     , h2
+    , inputAttributes
     , inputLabelAttributes
+    , outlinedButtonAttributes
     , plainButtonAttributes
+    , radioAttributes
     , shadow
     , shadowLg
     , shadowMd
     , shadowXl
+    , smallButtonAttributes
+    , smallOutlinedButtonAttributes
     , textButtonAttributes
     , windowAttributes
     )
@@ -18,14 +23,18 @@ import Element
         , Element
         , centerX
         , centerY
+        , clipY
         , el
         , fill
+        , height
         , html
         , maximum
+        , mouseOver
+        , moveDown
         , padding
         , paddingXY
-        , rgb255
         , rgba255
+        , scrollbarY
         , spacing
         , text
         , width
@@ -169,18 +178,67 @@ inputLabelAttributes =
 plainButtonAttributes : List (Attribute msg)
 plainButtonAttributes =
     [ paddingXY 16 12
-    , Border.rounded 4
     , Background.color Tailwind.blue700
-    , Font.color <| rgb255 255 255 255
+    , Font.color Tailwind.white
+    , Font.size 13
+    , Border.rounded 4
     , shadowLg
-    , Font.semiBold
+    , Font.medium
+    ]
+
+
+smallButtonAttributes : List (Attribute msg)
+smallButtonAttributes =
+    [ Border.rounded 4
+    , Border.width 1
+    , Border.color Tailwind.blue700
+    , shadowLg
+    , Font.medium
+    , paddingXY 12 8
+    , Background.color Tailwind.blue700
+    , Font.color Tailwind.white
+    , Font.size 13
+    ]
+
+
+inputAttributes : List (Attribute msg)
+inputAttributes =
+    [ padding 8, Background.color Tailwind.gray300 ]
+
+
+outlinedButtonAttributes : List (Attribute msg)
+outlinedButtonAttributes =
+    [ Border.rounded 4
+    , shadowLg
+    , Font.medium
+    , paddingXY 16 12
+    , Border.width 1
+    , Border.color Tailwind.blue700
+    , Background.color Tailwind.white
+    , Font.color Tailwind.blue700
+    ]
+
+
+smallOutlinedButtonAttributes : List (Attribute msg)
+smallOutlinedButtonAttributes =
+    [ paddingXY 12 8
+    , Border.rounded 4
+    , Border.width 1
+    , Border.color Tailwind.blue700
+    , Background.color Tailwind.white
+    , Font.medium
+    , Font.color Tailwind.blue700
+    , Font.size 13
     ]
 
 
 textButtonAttributes : List (Attribute msg)
 textButtonAttributes =
-    [ Font.color Tailwind.blue700
-    , Font.semiBold
+    [ paddingXY 8 8
+    , Font.color Tailwind.blue700
+    , Font.medium
+    , Border.rounded 4
+    , mouseOver [ Background.color Tailwind.gray200 ]
     ]
 
 
@@ -199,4 +257,17 @@ windowAttributes =
     , Border.width 1
     , Border.color Tailwind.gray400
     , Border.rounded 10
+    ]
+
+
+radioAttributes : List (Attribute msg)
+radioAttributes =
+    [ paddingXY 0 8
+    , Background.color Tailwind.white
+    , shadow
+    , height (fill |> maximum 200)
+    , clipY
+    , scrollbarY
+    , moveDown 4
+    , width fill
     ]
